@@ -1,0 +1,46 @@
+* Panometer
+
+** TODOs
+*** TODO Set up CL package
+*** TODO Set up swank server for remote REPL
+*** TODO Set up web server
+**** TODO View experiment
+**** TODO List experiments
+**** TODO Add/Start experiment
+**** TODO Delete/Stop experiment
+
+** Setup
+*** Raspberry PI Zero
+**** Download and install [[https://raspberrypi.org/downloads/raspbian][Raspbian Stretch Lite]]
+**** Enable ssh
+
+#+BEGIN_SRC shell
+touch /Volumes/boot/ssh
+#+END_SRC
+
+**** Enable and configure wifi
+
+#+BEGIN_SRC shell
+country=US
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+  ssid="my SSID"
+  psk="my password"
+}
+#+END_SRC
+
+**** [[201~200~https://github.com/adafruit/Adafruit_Python_DHT][Install DHT11 driver]]
+**** Install Python 3
+
+#+BEGIN_SRC shell
+sudo apt-get install python 3
+#+END_SRC
+
+**** [[201~200~https://learn.adafruit.com/adafruit-vl6180x-time-of-flight-micro-lidar-distance-sensor-breakout/python-circuitpython][Install vl6180 driver]]
+**** Enable I2C
+
+#+BEGIN_SRC shell
+sudo raspi-config
+#+END_SRC

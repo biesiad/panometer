@@ -68,6 +68,7 @@
 	       ".png"))
 
 (defun plot (experiment)
+  (ensure-directories-exist (plot-file experiment))
   (uiop:run-program
    (concatenate 'string
 		"gnuplot -c plot.plt "
@@ -76,6 +77,7 @@
 		(plot-file experiment))))
 
 (defun save-sample (sample &optional suffix)
+  (ensure-directories-exist (experiment-file (sample-experiment sample)))
   (let ((out (open (experiment-file (sample-experiment sample) suffix)
 		   :direction :output
 		   :if-does-not-exist :create

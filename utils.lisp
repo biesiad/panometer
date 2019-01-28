@@ -1,3 +1,70 @@
+
+(defun start (index range min)
+  (max min (- index range)))
+
+(defun end (index range max)
+  ;; (min max (+ index range 1)))
+  (+ 1 index))
+
+(defun smooth (input range)
+  (labels ((iter (index output)
+	     (cond ((= index (length input)) (reverse output))
+		   (t
+		    (iter
+			(1+ index)
+			(cons
+			 (/ (apply #'+ (subseq input
+					       (start index range 0)
+					       (end index range (length input))))
+			    (float (- (end index range (length input))
+				      (start index range 0))))
+			 output))))))
+    (iter 0 '())))
+
+(defun read-input (filename)
+  (with-open-file (in filename)
+    (loop for sample = (read-line in nil)
+	  while sample
+	  collect (parse-integer sample))))
+
+(defun save (input filename)
+  (with-open-file (out filename
+		       :direction :output
+		       :if-exists :supersede)
+    (dolist (sample (smooth input (* 60 60)))
+      (write-line (write-to-string sample) out))))
+
+(save
+ (smooth (read-input "./panometer_clean2.data") (* 60 60))
+ "panometer2_smooth_3600_oneway.csv")
+
+(save
+ (smooth (read-input "./panometer_clean3.data") (* 60 60))
+ "panometer3_smooth_3600_oneway.csv")
+
+(save
+ (smooth (read-input "./panometer_clean4.data") (* 60 60))
+ "panometer4_smooth_3600_oneway.csv")
+
+(smooth '(0 1 0) 1)
+(smooth '(0 1 2 1 0) 1)
+(smooth '(1 1 1 1 1) 1)
+
+(smooth '(0 1 0) 3)
+(smooth '(0 1 2 1 0) 5)
+
+(smooth '(0 1 2 3 4 5 6 7 8 9) 1)
+(smooth '(1 3 2 4 4 5 4 6 7 5 6 5 3 2 1))
+
+
+
+(defmacro addf (to value)
+  `(setf ,to (+ ,to ,value)))
+
+(defmacro running-addf (to slot sample samples)
+  `(addf ,to (+ (slot-value ,sample ,slot)
+	       (- (slot-value (first (reverse ,samples)) ,slot)))))
+
 (defun make-smooth (count)
   (let ((samples '())
 	(sum-temperature 0)

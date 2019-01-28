@@ -46,13 +46,6 @@
 	  (sample-height sample)
 	  (sample-luminosity sample)))
 
-(defmacro addf (to value)
-  `(setf ,to (+ ,to ,value)))
-
-(defmacro running-addf (to slot sample samples)
-  `(addf ,to (+ (slot-value ,sample ,slot)
-	       (- (slot-value (first (reverse ,samples)) ,slot)))))
-
 (defun experiment-file (experiment &optional suffix)
   (concatenate 'string
 	       "./experiments/"

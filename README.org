@@ -2,12 +2,13 @@
 
 ** TODOs
 *** TODO Set up CL package
-*** TODO Set up swank server for remote REPL
+*** DONE Set up swank server for remote REPL
 *** TODO Set up web server
-**** TODO View experiment
-**** TODO List experiments
+**** DONE View experiment
+**** DONE List experiments
 **** TODO Add/Start experiment
 **** TODO Delete/Stop experiment
+
 
 ** Setup
 *** Raspberry PI Zero
@@ -44,3 +45,4 @@ sudo apt-get install python 3
 #+BEGIN_SRC shell
 sudo raspi-config
 #+END_SRC
+*** Common Lisp

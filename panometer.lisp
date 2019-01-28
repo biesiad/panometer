@@ -108,5 +108,3 @@
 (defun resume-experiment ()
   (setf *paused* nil))
 
-(start-experiment 3757606263)
-;; (stop-experiment)

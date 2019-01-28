@@ -1,27 +1,33 @@
 set datafile separator ','
 
-set title ARG1
+input = ARG1
+output = ARG2
+
+set title input
 set ylabel 'Height [mm]'
 set y2label 'Temperature [*C]'
 set xlabel 'Time [H:M]'
 
 set terminal jpeg
-set output ARG2
+set output output
 
+set tics front
 set ytics nomirror
-
 set ytics 0, 5
 set yrange [0:60]
-
 set y2tics 0, 10
 set y2range [0:30]
 
+set xtics nomirror
 set timefmt "%s"
 set xdata time
 set format x "%H:%M"
-set xtics nomirror
+count = system("wc -l < ".input)
+first = system("head -n1 ".input." | cut -d, -f1")
+last = system("tail -n1 ".input." | cut -d, -f1")
+set xtics first, count, last
 
-plot ARG1 \
+plot input \
      using 1:4 title 'Height' \
      smooth bezier \
      with filledcurve x1 lc rgbcolor '#dddddd' \

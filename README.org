@@ -32,14 +32,14 @@ network={
 }
 #+END_SRC
 
-**** [[201~200~https://github.com/adafruit/Adafruit_Python_DHT][Install DHT11 driver]]
+**** [[https://github.com/adafruit/Adafruit_Python_DHT][Install DHT11 driver]]
 **** Install Python 3
 
 #+BEGIN_SRC shell
 sudo apt-get install python 3
 #+END_SRC
 
-**** [[201~200~https://learn.adafruit.com/adafruit-vl6180x-time-of-flight-micro-lidar-distance-sensor-breakout/python-circuitpython][Install vl6180 driver]]
+**** [[https://learn.adafruit.com/adafruit-vl6180x-time-of-flight-micro-lidar-distance-sensor-breakout/python-circuitpython][Install vl6180 driver]]
 **** Enable I2C
 
 #+BEGIN_SRC shell

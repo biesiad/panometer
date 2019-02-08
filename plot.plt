@@ -22,10 +22,11 @@ set xtics nomirror
 set timefmt "%s"
 set xdata time
 set format x "%H:%M"
-count = system("wc -l < ".input)
-first = system("head -n1 ".input." | cut -d, -f1")
+count = system("wc -l <".input)
+first = system("expr $(head -n1 ".input." | cut -d, -f1) - $(head -n1 ".input." | cut -d, -f1) % 3600")
 last = system("tail -n1 ".input." | cut -d, -f1")
-set xtics first, count, last
+# set xtics first, floor(count*2), last
+set xtics first, 2*3600,last
 
 plot input \
      using 1:4 title 'Height' \
@@ -37,7 +38,3 @@ plot input \
      smooth bezier \
      lw 2 lc rgbcolor '#555555' \
      axis x1y2
-
-
-
-

@@ -1,8 +1,6 @@
 (defpackage :panometer
   (:use :cl))
 
-(in-package :panometer)
-
 (defvar *container-height* 70)
 
 (defvar *running* nil)
@@ -108,3 +106,4 @@
 (defun resume-experiment ()
   (setf *paused* nil))
 
+(start-experiment (get-universal-time))

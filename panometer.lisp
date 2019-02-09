@@ -106,4 +106,4 @@
 (defun resume-experiment ()
   (setf *paused* nil))
 
-(start-experiment (get-universal-time))
+(start-experiment (intern (concatenate 'string (write-to-string (get-universal-time)) "-" "RYE")))

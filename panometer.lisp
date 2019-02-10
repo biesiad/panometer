@@ -1,9 +1,21 @@
-(defpackage :panometer
-  (:use :cl))
+(require :cl-json)
+(require :hunchentoot)
+(require :easy-routes)
+(require :cl-who)
+
+;; (defpackage :panometer
+;;   (:use
+;;    :cl
+;;    :hunchentoot
+;;    :cl-who
+;;    :easy-routes))
+
+;; (in-package :panometer)
 
 (defvar *container-height* 70)
 
 (defvar *running* nil)
+
 (defvar *paused* nil)
 
 (defstruct sample
@@ -44,18 +56,16 @@
 	  (sample-height sample)
 	  (sample-luminosity sample)))
 
-(defun experiment-file (experiment &optional suffix)
+(defun experiment-file (experiment)
   (concatenate 'string
 	       "./experiments/"
 	       (write-to-string experiment)
-	       (or suffix "")
 	       ".csv"))
 
-(defun plot-file (experiment &optional suffix)
+(defun plot-file (experiment)
   (concatenate 'string
 	       "./plots/"
 	       (write-to-string experiment)
-	       (or suffix "")
 	       ".png"))
 
 (defun plot (experiment)
@@ -67,9 +77,9 @@
 		" "
 		(plot-file experiment))))
 
-(defun save-sample (sample &optional suffix)
+(defun save-sample (sample)
   (ensure-directories-exist (experiment-file (sample-experiment sample)))
-  (let ((out (open (experiment-file (sample-experiment sample) suffix)
+  (let ((out (open (experiment-file (sample-experiment sample))
 		   :direction :output
 		   :if-does-not-exist :create
 		   :if-exists :append)))
@@ -82,19 +92,17 @@
   (plot (sample-experiment sample)))
 
 (defun start-experiment (experiment)
-  ;; (when (probe-file (experiment-file experiment))
-  ;;   (delete-file (experiment-file experiment)))
-  (setf *running* t)
+  (setf *running* experiment)
   (setf *paused* nil)
   (format t "Starting ~a~%" experiment)
-    (loop
-      (cond ((not *running*)
-	     (return))
-	    (*paused*
-	     (format t "Paused~%"))
-	    (t
-	     (process (parse-sample experiment (get-sample)))))
-      (sleep 10))
+  (loop
+     (cond ((not *running*)
+	    (return))
+	   (*paused*
+	    (format t "Paused~%"))
+	   (t
+	    (process (parse-sample experiment (get-sample)))))
+     (sleep 10))
   (format t "Stopping~%"))
 
 (defun stop-experiment ()
@@ -106,4 +114,85 @@
 (defun resume-experiment ()
   (setf *paused* nil))
 
-(start-experiment (intern (concatenate 'string (write-to-string (get-universal-time)) "-" "RYE")))
+(defun path-to-experiment (path)
+  (read-from-string
+   (subseq
+    (file-namestring path)
+    0
+    (position #\. (file-namestring path)))))
+
+(defun get-experiments ()
+  (reverse (mapcar #'path-to-experiment
+	  (uiop:directory-files "./experiments/"))))
+
+
+;; web
+
+(defparameter *hostname* "http://192.168.1.7")
+
+(defparameter *port* 8888)
+
+(defun experiment-to-url (experiment)
+  (format nil
+	  "~a:~a/experiments/~a"
+	  *hostname*
+	  *port*
+	  experiment))
+
+(defun experiment-link-classname (experiment)
+  (if (equal experiment *running*)
+      "experiment-link active"
+      "experiment-link"))
+
+(easy-routes:defroute get-experiments-route ("/experiments") ()
+  (setf (hunchentoot:content-type*) "text/html; charset=utf-8")
+  (let ((styles (format nil "~a/styles.css" *hostname*)))
+    (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
+      (:head
+       (:link :rel "stylesheet" :type "text/css" :href styles)
+       (:meta :name "viewport" :content "width=device-width, initial-scale=1.0, user-scalable=yes"))
+      (:body
+       (:p :class "logo" "PANOMETER")
+       (:div :class "container"
+	     (when (not *running*)
+	       (cl-who:htm (:form :method :post :action
+				  "/experiments"
+				  (:input :class "button" :type "submit" :value "start"))))
+	     (loop for e in (get-experiments) do
+	       (let ((url (format nil "~a:~a/experiments/~a" *hostname* *port* e))
+		     (classname (experiment-link-classname e)))
+		 (cl-who:htm
+		  (:p (:a :class classname :href url (cl-who:str e)))))))))))
+
+(easy-routes:defroute get-experiment-route "/experiments/:id" ()
+  (let ((image-url (format nil  "~a/~a.png" *hostname* id))
+	(fallback (format nil "this.src=\"~a/fallback.png\"" *hostname*))
+	(styles (format nil "~a/styles.css" *hostname*)))
+    (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
+      (:head
+       (:link :rel "stylesheet" :type "text/css" :href styles)
+       (:meta :name "viewport" :content "width=device-width, initial-scale=1.0, user-scalable=yes")
+       (:meta :http-equiv "refresh" :content "10"))
+      (:body (:div :class "container"       
+       (:p (:img :src image-url :onerror fallback))
+       (when (equal *running* (read-from-string id))
+	 (cl-who:htm (:form :method :post
+			    :action "/experiments/stop"
+			    (:input :type "submit" :value "stop" :class "button"))))
+       (:p (:a :class "button" :href "/experiments" "back")))))))
+
+(easy-routes:defroute start-experiment-route ("/experiments" :method :post) ()
+  (cond (*running*
+	 (hunchentoot:redirect (experiment-to-url *running*)))
+	(t 
+	 (let ((experiment (get-universal-time)))
+	   (process-run-function experiment #'start-experiment experiment)
+	   (hunchentoot:redirect (experiment-to-url experiment))))))
+
+(easy-routes:defroute stop-experiment-route ("/experiments/stop" :method :post) ()
+  (stop-experiment)
+  (hunchentoot:redirect "/experiments"))
+
+(hunchentoot:start
+ (make-instance 'easy-routes:routes-acceptor
+ 		:port 8888))

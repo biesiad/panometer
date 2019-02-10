@@ -6,15 +6,15 @@ output = ARG2
 set title input
 set ylabel 'Height [mm]'
 set y2label 'Temperature [*C]'
-set xlabel 'Time [H:M]'
+set xlabel 'Time UTC [H:M]'
 
 set terminal jpeg
 set output output
 
 set tics front
 set ytics nomirror
-set ytics 0, 5
-set yrange [0:60]
+set ytics 0, 10
+set yrange [0:80]
 set y2tics 0, 10
 set y2range [0:30]
 

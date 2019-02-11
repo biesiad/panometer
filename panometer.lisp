@@ -64,7 +64,7 @@
 
 (defun plot-file (experiment)
   (concatenate 'string
-	       "./plots/"
+	       "./assets/"
 	       (write-to-string experiment)
 	       ".png"))
 
@@ -144,6 +144,12 @@
       "experiment-link active"
       "experiment-link"))
 
+(defun experiment-to-time (experiment)
+  (multiple-value-bind (second minute hour day month year)
+      (decode-universal-time (parse-integer (format nil "~d" experiment)))
+    (declare (ignore second))
+    (format nil "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d" year month day hour minute)))
+
 (easy-routes:defroute get-experiments-route ("/experiments") ()
   (setf (hunchentoot:content-type*) "text/html; charset=utf-8")
   (let ((styles (format nil "~a/styles.css" *hostname*)))
@@ -160,9 +166,10 @@
 				  (:input :class "button" :type "submit" :value "start"))))
 	     (loop for e in (get-experiments) do
 	       (let ((url (format nil "~a:~a/experiments/~a" *hostname* *port* e))
-		     (classname (experiment-link-classname e)))
+		     (classname (experiment-link-classname e))
+		     (name (experiment-to-time e)))
 		 (cl-who:htm
-		  (:p (:a :class classname :href url (cl-who:str e)))))))))))
+		  (:p (:a :class classname :href url (cl-who:str name)))))))))))
 
 (easy-routes:defroute get-experiment-route "/experiments/:id" ()
   (let ((image-url (format nil  "~a/~a.png" *hostname* id))

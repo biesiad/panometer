@@ -63,19 +63,14 @@
 	       ".csv"))
 
 (defun plot-file (experiment)
-  (concatenate 'string
-	       "./assets/"
-	       (write-to-string experiment)
-	       ".png"))
+  (format nil "./assets/~d.png" (write-to-string experiment)))
 
 (defun plot (experiment)
   (ensure-directories-exist (plot-file experiment))
   (uiop:run-program
-   (concatenate 'string
-		"gnuplot -c plot.plt "
-		(experiment-file experiment)
-		" "
-		(plot-file experiment))))
+   (format nil "gnuplot -c plot.plt ~d ~d"
+	   (experiment-file experiment)
+	   (plot-file experiment))))
 
 (defun save-sample (sample)
   (ensure-directories-exist (experiment-file (sample-experiment sample)))
@@ -125,7 +120,15 @@
   (reverse (mapcar #'path-to-experiment
 	  (uiop:directory-files "./experiments/"))))
 
+(defun delete-experiment (experiment)
+  (when (equal experiment *running*)
+    (stop-experiment))
+  (let ((data (format nil "./experiments/~d.csv" experiment))
+	(plot (format nil "./assets/~d.png" experiment)))
+    (when (probe-file data) (delete-file data))
+    (when (probe-file plot) (delete-file plot))))
 
+			  
 ;; web
 
 (defparameter *hostname* "http://192.168.1.7")
@@ -150,7 +153,8 @@
     (declare (ignore second))
     (format nil "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d" year month day hour minute)))
 
-(easy-routes:defroute get-experiments-route ("/experiments") ()
+(easy-routes:defroute get-experiments-route
+    ("/experiments") ()
   (let ((styles (format nil "~a/styles.css" *hostname*)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
       (:head
@@ -170,13 +174,15 @@
 		 (cl-who:htm
 		  (:p (:a :class classname :href url (cl-who:str name)))))))))))
 
-(intern "1232")
-
-(easy-routes:defroute get-experiment-route "/experiments/:id" ()
+(easy-routes:defroute get-experiment-route
+    "/experiments/:id" ()
   (let ((image-url (format nil  "~a/~a.png" *hostname* id))
 	(fallback (format nil "this.src=\"~a/loader.gif\"" *hostname*))
 	(styles (format nil "~a/styles.css" *hostname*))
-	(name (experiment-to-time (read-from-string id))))
+	(name (experiment-to-time (read-from-string id)))
+    	(delete-url (format nil "/experiments/~d/delete" (read-from-string id)))
+	(data (format nil "./experiments/~d.csv" (read-from-string id)))
+	(plot (format nil "./assets/~d.png" (read-from-string id))))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
       (:head
        (:link :rel "stylesheet" :type "text/css" :href styles)
@@ -185,6 +191,13 @@
       (:body
        (:p :class "logo" (cl-who:str name))
        (:div :class "container"       
+	     (when (and (probe-file data)
+			(probe-file plot))
+	       (cl-who:htm (:form :method :post
+				  :action delete-url
+				  (:input :type "submit"
+					  :value "delete"
+					  :class "link"))))
 	     (:p (:img :src image-url :onerror fallback))
 	     (when (equal *running* (read-from-string id))
 	       (cl-who:htm (:form :method :post
@@ -192,7 +205,8 @@
 				  (:input :type "submit" :value "stop" :class "button"))))
 	     (:p (:a :class "button" :href "/experiments" "back")))))))
 
-(easy-routes:defroute start-experiment-route ("/experiments" :method :post) ()
+(easy-routes:defroute start-experiment-route
+    ("/experiments" :method :post) ()
   (cond (*running*
 	 (hunchentoot:redirect (experiment-to-url *running*)))
 	(t 
@@ -200,10 +214,16 @@
 	   (process-run-function experiment #'start-experiment experiment)
 	   (hunchentoot:redirect (experiment-to-url experiment))))))
 
-(easy-routes:defroute stop-experiment-route ("/experiments/stop" :method :post) ()
+(easy-routes:defroute stop-experiment-route
+    ("/experiments/stop" :method :post) ()
   (stop-experiment)
   (hunchentoot:redirect "/experiments"))
 
+(easy-routes:defroute delete-experiment-route
+    ("/experiments/:id/delete" :method :post) ()
+  (delete-experiment (read-from-string id))
+  (hunchentoot:redirect "/experiments"))
+  
 (hunchentoot:start
  (make-instance 'easy-routes:routes-acceptor
  		:port 8888))

@@ -12,7 +12,7 @@
 
 ;; (in-package :panometer)
 
-(defvar *container-height* 70)
+(defvar *container-height* 60)
 
 (defvar *running* nil)
 

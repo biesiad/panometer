@@ -17,6 +17,11 @@ img {
     margin-bottom: 30px;
 }
 
+img[src*='loader'] {
+    width: 20%;
+    margin: 100px 0 120px;
+}
+
 .logo {
     background: #222222;
     color: #eeeeee;

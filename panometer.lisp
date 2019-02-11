@@ -174,7 +174,7 @@
 
 (easy-routes:defroute get-experiment-route "/experiments/:id" ()
   (let ((image-url (format nil  "~a/~a.png" *hostname* id))
-	(fallback (format nil "this.src=\"~a/fallback.png\"" *hostname*))
+	(fallback (format nil "this.src=\"~a/loader.gif\"" *hostname*))
 	(styles (format nil "~a/styles.css" *hostname*))
 	(name (experiment-to-time (read-from-string id))))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)

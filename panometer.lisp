@@ -151,7 +151,6 @@
     (format nil "~d-~2,'0d-~2,'0d ~2,'0d:~2,'0d" year month day hour minute)))
 
 (easy-routes:defroute get-experiments-route ("/experiments") ()
-  (setf (hunchentoot:content-type*) "text/html; charset=utf-8")
   (let ((styles (format nil "~a/styles.css" *hostname*)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
       (:head

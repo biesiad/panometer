@@ -101,7 +101,8 @@
   (format t "Stopping~%"))
 
 (defun stop-experiment ()
-  (setf *running* nil))
+  (setf *running* nil)
+  (setf *paused* nil))
 
 (defun pause-experiment ()
   (setf *paused* t))
@@ -223,7 +224,17 @@
     ("/experiments/:id/delete" :method :post) ()
   (delete-experiment (read-from-string id))
   (hunchentoot:redirect "/experiments"))
-  
+
+;; (easy-routes:defroute pause-experiment-route
+;;     ("/experiemnts/:id/pause" :method :post) ()
+;;   (pause-experiment (read-from-string id))
+;;   (hunchentoot:redirect (format nil "/experiments/~d" id)))
+
+;; (easy-routes:defroute resume-experiment-route
+;;     ("/experiemnts/:id/resume" :method :post) ()
+;;   (resume-experiment (read-from-string id))
+;;   (hunchentoot:redirect (format nil "/experiments/~d" id)))
+
 (hunchentoot:start
  (make-instance 'easy-routes:routes-acceptor
  		:port 8888))

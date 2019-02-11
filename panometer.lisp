@@ -171,22 +171,27 @@
 		 (cl-who:htm
 		  (:p (:a :class classname :href url (cl-who:str name)))))))))))
 
+(intern "1232")
+
 (easy-routes:defroute get-experiment-route "/experiments/:id" ()
   (let ((image-url (format nil  "~a/~a.png" *hostname* id))
 	(fallback (format nil "this.src=\"~a/fallback.png\"" *hostname*))
-	(styles (format nil "~a/styles.css" *hostname*)))
+	(styles (format nil "~a/styles.css" *hostname*))
+	(name (experiment-to-time (read-from-string id))))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t)
       (:head
        (:link :rel "stylesheet" :type "text/css" :href styles)
        (:meta :name "viewport" :content "width=device-width, initial-scale=1.0, user-scalable=yes")
        (:meta :http-equiv "refresh" :content "10"))
-      (:body (:div :class "container"       
-       (:p (:img :src image-url :onerror fallback))
-       (when (equal *running* (read-from-string id))
-	 (cl-who:htm (:form :method :post
-			    :action "/experiments/stop"
-			    (:input :type "submit" :value "stop" :class "button"))))
-       (:p (:a :class "button" :href "/experiments" "back")))))))
+      (:body
+       (:p :class "logo" (cl-who:str name))
+       (:div :class "container"       
+	     (:p (:img :src image-url :onerror fallback))
+	     (when (equal *running* (read-from-string id))
+	       (cl-who:htm (:form :method :post
+				  :action "/experiments/stop"
+				  (:input :type "submit" :value "stop" :class "button"))))
+	     (:p (:a :class "button" :href "/experiments" "back")))))))
 
 (easy-routes:defroute start-experiment-route ("/experiments" :method :post) ()
   (cond (*running*

@@ -2,13 +2,6 @@
 
 ** TODOs
 *** TODO Set up CL package
-*** DONE Set up swank server for remote REPL
-*** TODO Set up web server
-**** DONE View experiment
-**** DONE List experiments
-**** TODO Add/Start experiment
-**** TODO Delete/Stop experiment
-
 
 ** Setup
 *** Raspberry PI Zero
@@ -44,5 +37,11 @@ sudo apt-get install python 3
 
 #+BEGIN_SRC shell
 sudo raspi-config
+#+END_SRC
+**** Setup daemon
+#+BEGIN shell
+cp panometer.service /etc/systemd/system/
+sudo systemctl enable /etc/systemd/system/panometer.service
+sudo systemctl start panometer.service
 #+END_SRC
 *** Common Lisp

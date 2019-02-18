@@ -238,3 +238,5 @@
 (hunchentoot:start
  (make-instance 'easy-routes:routes-acceptor
  		:port 8888))
+
+(format t "Started server on 8888")

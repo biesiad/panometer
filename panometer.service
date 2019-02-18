@@ -1,0 +1,22 @@
+[Unit]
+Description=Panometer
+After=nginx.service
+
+[Service]
+Type=forking
+
+User=pi
+WorkingDirectory=/home/pi/panometer
+
+ExecStart=/usr/bin/tmux new-session -s panometer -d armcl --load panometer.lisp
+ExecStop=/usr/bin/tmux kill-session -t panometer
+
+# Restart=always
+# RestartSec=10
+
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=panometer
+
+[Install]
+WantedBy=multi-user.target

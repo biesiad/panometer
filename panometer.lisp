@@ -40,6 +40,7 @@
   (float (with-input-from-string (in string) (read in))))
 
 (defun parse-sample (experiment input)
+  (or (ignore-errors
   (let ((values (split-by-comma input)))
     (make-sample
      :experiment experiment
@@ -47,6 +48,12 @@
      :humidity (parse-float (nth 1 values))
      :height (- *container-height* (parse-float (nth 2 values)))
      :luminosity (parse-float (nth 3 values)))))
+    (make-sample
+     :experiment experiment
+     :temperature 0.0
+     :humidity 0.0
+     :height 0.0
+     :luminosity 0.0)))
 
 (defun format-sample (sample &optional (stream *standard-output*))
   (format stream "~a,~a,~a,~a,~a~%"

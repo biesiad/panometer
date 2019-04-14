@@ -63,21 +63,28 @@
 	  (sample-height sample)
 	  (sample-luminosity sample)))
 
-(defun experiment-file (experiment)
+(defun experiment-file (experiment &optional (suffix ""))
   (concatenate 'string
 	       "./experiments/"
 	       (write-to-string experiment)
+	       suffix
 	       ".csv"))
 
-(defun plot-file (experiment)
-  (format nil "./assets/~d.png" (write-to-string experiment)))
+(defun plot-file (experiment &optional (suffix ""))
+  (format nil "./assets/~d~a.png"
+	  (write-to-string experiment)
+	  suffix))
 
 (defun plot (experiment)
   (ensure-directories-exist (plot-file experiment))
   (uiop:run-program
    (format nil "gnuplot -c plot.plt ~d ~d"
 	   (experiment-file experiment)
-	   (plot-file experiment))))
+	   (plot-file experiment)))
+  (uiop:run-program
+   (format nil "gnuplot -c plot.plt ~d ~d"
+	   (experiment-file experiment "_downsample")
+	   (plot-file experiment "_downsample"))))
 
 (defun save-sample (sample)
   (ensure-directories-exist (experiment-file (sample-experiment sample)))
@@ -88,9 +95,28 @@
     (format-sample sample out)
     (close out)))
 
+(defun downsample-ratio (experiment)
+  (let* ((command (format nil "wc -l ~d | cut -d' ' -f1" (experiment-file experiment)))
+	 (ratio (floor (/
+	    (parse-float (uiop:run-program command :output :string))
+	    128))))
+    (if (= ratio 0) 1 ratio)))
+
+(defun save-downsample (experiment)
+  (let ((command (format nil "sed -n '1~~~dp' ~d"
+			 (downsample-ratio experiment)
+			 (experiment-file experiment)))
+	(out (open (format nil "experiments/~d_downsample.csv" experiment)
+		   :direction :output
+		   :if-does-not-exist :create
+		   :if-exists :overwrite)))
+    (format out "~a" (uiop:run-program command :output :string))
+    (close out)))
+
 (defun process (sample)
   (format-sample sample)
   (save-sample sample)
+  (save-downsample (sample-experiment sample))
   (plot (sample-experiment sample)))
 
 (defun start-experiment (experiment)
@@ -126,15 +152,20 @@
 
 (defun get-experiments ()
   (reverse (mapcar #'path-to-experiment
-	  (uiop:directory-files "./experiments/"))))
+		   (remove-if (lambda (path) (position #\_ (file-namestring path)))
+			      (uiop:directory-files "./experiments/")))))
 
 (defun delete-experiment (experiment)
   (when (equal experiment *running*)
     (stop-experiment))
   (let ((data (format nil "./experiments/~d.csv" experiment))
-	(plot (format nil "./assets/~d.png" experiment)))
+	(data-downsample (format nil "./experiments/~d_downsample.csv" experiment))
+	(plot (format nil "./assets/~d.png" experiment))
+    	(plot-downsample (format nil "./assets/~d_downsample.png" experiment)))
     (when (probe-file data) (delete-file data))
-    (when (probe-file plot) (delete-file plot))))
+    (when (probe-file data-downsample) (delete-file data-downsample))
+    (when (probe-file plot) (delete-file plot))
+    (when (probe-file plot-downsample) (delete-file plot-downsample))))
 
 			  
 ;; web
@@ -185,6 +216,7 @@
 (easy-routes:defroute get-experiment-route
     "/experiments/:id" ()
   (let ((image-url (format nil  "~a/~a.png" *hostname* id))
+	(image-downsample-url (format nil  "~a/~a_downsample.png" *hostname* id))
 	(fallback (format nil "this.src=\"~a/loader.gif\"" *hostname*))
 	(styles (format nil "~a/styles.css" *hostname*))
 	(name (experiment-to-time (read-from-string id)))
@@ -207,6 +239,7 @@
 					  :value "delete"
 					  :class "link"))))
 	     (:p (:img :src image-url :onerror fallback))
+	     (:p (:img :src image-downsample-url :onerror fallback))
 	     (when (equal *running* (read-from-string id))
 	       (cl-who:htm (:form :method :post
 				  :action "/experiments/stop"
@@ -244,6 +277,7 @@
 
 (hunchentoot:start
  (make-instance 'easy-routes:routes-acceptor
- 		:port 8888))
+		:name :panometer
+ 		:port *port*))
 
-(format t "Started server on 8888")
+(format t "Started server on ~a" *port*)

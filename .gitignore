@@ -1,4 +1,5 @@
 assets/[0-9]*.png
+assets/[0-9]*.ppm
 experiments/*
 *~ 
 \#*#

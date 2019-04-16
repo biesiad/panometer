@@ -18,17 +18,22 @@
 
 (defvar *paused* nil)
 
+(defvar *downsample* 128)
+
+
 (defstruct sample
-  experiment
+  time
   temperature
   humidity
   height
   luminosity)
 
+
 (defun get-sample ()
   (uiop:run-program
    "echo \"$(python dht11.py),$(python3 vl6180.py)\""
    :output :string))
+
 
 (defun split-by-comma (string)
   (loop for i = 0 then (1+ j)
@@ -39,29 +44,39 @@
 (defun parse-float (string)
   (float (with-input-from-string (in string) (read in))))
 
-(defun parse-sample (experiment input)
+(defun parse-raw-sample (input)
   (or (ignore-errors
-  (let ((values (split-by-comma input)))
+	(let ((values (split-by-comma input)))
+	  (make-sample
+	   :time (get-universal-time)
+	   :temperature (parse-float (nth 0 values))
+	   :humidity (parse-float (nth 1 values))
+	   :height (- *container-height* (parse-float (nth 2 values)))
+	   :luminosity (parse-float (nth 3 values)))))
+      (make-sample
+       :time (get-universal-time)
+       :temperature 0.0
+       :humidity 0.0
+       :height 0.0
+       :luminosity 0.0)))
+
+(defun parse-sample (input)
+  (let ((parts (split-by-comma input)))
     (make-sample
-     :experiment experiment
-     :temperature (parse-float (nth 0 values))
-     :humidity (parse-float (nth 1 values))
-     :height (- *container-height* (parse-float (nth 2 values)))
-     :luminosity (parse-float (nth 3 values)))))
-    (make-sample
-     :experiment experiment
-     :temperature 0.0
-     :humidity 0.0
-     :height 0.0
-     :luminosity 0.0)))
+     :time (parse-integer (nth 0 parts))
+     :temperature (parse-float (nth 1 parts))
+     :humidity (parse-float (nth 2 parts))
+     :height (parse-float (nth 3 parts))
+     :luminosity (parse-float (nth 4 parts)))))
 
 (defun format-sample (sample &optional (stream *standard-output*))
   (format stream "~a,~a,~a,~a,~a~%"
-	  (get-universal-time)
+	  (sample-time sample)
 	  (sample-temperature sample)
 	  (sample-humidity sample)
 	  (sample-height sample)
 	  (sample-luminosity sample)))
+
 
 (defun experiment-file (experiment &optional (suffix ""))
   (concatenate 'string
@@ -75,49 +90,112 @@
 	  (write-to-string experiment)
 	  suffix))
 
-(defun plot (experiment)
-  (ensure-directories-exist (plot-file experiment))
-  (uiop:run-program
-   (format nil "gnuplot -c plot.plt ~d ~d"
-	   (experiment-file experiment)
-	   (plot-file experiment)))
-  (uiop:run-program
-   (format nil "gnuplot -c plot.plt ~d ~d"
-	   (experiment-file experiment "_downsample")
-	   (plot-file experiment "_downsample"))))
 
-(defun save-sample (sample)
-  (ensure-directories-exist (experiment-file (sample-experiment sample)))
-  (let ((out (open (experiment-file (sample-experiment sample))
+(defun get-experiments ()
+  (labels ((path-to-experiment (path)
+	     (read-from-string
+	      (subseq
+	       (file-namestring path)
+	       0
+	       (position #\. (file-namestring path))))))
+
+    (reverse (mapcar #'path-to-experiment
+		     (remove-if (lambda (path) (position #\_ (file-namestring path)))
+				(uiop:directory-files "./experiments/"))))))
+
+(defun get-samples (experiment)
+  (with-open-file (file (experiment-file experiment))
+    (loop for line = (read-line file nil nil)
+	  while line
+	  collect (parse-sample line))))
+
+
+(defun save-samples (samples experiment &optional (suffix ""))
+  (let ((out (open (format nil "experiments/~d~d.csv" experiment suffix)
+		   :direction :output
+		   :if-does-not-exist :create
+		   :if-exists :overwrite)))
+    (dolist (sample samples)
+     (format-sample sample out))
+    (close out)))
+
+(defun plot (experiment &optional (suffix ""))
+  (ensure-directories-exist (plot-file experiment suffix))
+  (uiop:run-program
+   (format nil "gnuplot -c plot.plt ~d ~d"
+	   (experiment-file experiment suffix)
+	   (plot-file experiment suffix))))
+
+(defun downsample (samples count)
+  (labels ((iter (samples result index ratio next)
+	     (cond ((null samples) (reverse result))
+		   ((=
+		     (floor (+ index ratio))
+		     (floor next))
+		    (iter (rest samples)
+			  (cons (first samples) result)
+			  (+ index 1)
+			  ratio
+			  (+ next ratio)))
+		   (t
+		    (iter (rest samples)
+			  result
+			  (+ index 1)
+			  ratio
+			  next)))))
+
+    (let ((ratio (/ (length samples) count)))
+      (iter samples '() 0 ratio ratio))))
+
+(defun add-sample (sample experiment)
+  (ensure-directories-exist (experiment-file experiment))
+  (let ((out (open (experiment-file experiment)
 		   :direction :output
 		   :if-does-not-exist :create
 		   :if-exists :append)))
     (format-sample sample out)
     (close out)))
 
-(defun downsample-ratio (experiment)
-  (let* ((command (format nil "wc -l ~d | cut -d' ' -f1" (experiment-file experiment)))
-	 (ratio (floor (/
-	    (parse-float (uiop:run-program command :output :string))
-	    128))))
-    (if (= ratio 0) 1 ratio)))
 
-(defun save-downsample (experiment)
-  (let ((command (format nil "sed -n '1~~~dp' ~d"
-			 (downsample-ratio experiment)
-			 (experiment-file experiment)))
-	(out (open (format nil "experiments/~d_downsample.csv" experiment)
-		   :direction :output
-		   :if-does-not-exist :create
-		   :if-exists :overwrite)))
-    (format out "~a" (uiop:run-program command :output :string))
-    (close out)))
+(defun ppm (experiment columns)
+  (let ((data (make-array `(64 ,columns) :initial-element 0)))
+    (loop for index from 0
+	  and height in (mapcar
+			 #'sample-height
+			 (reverse (downsample (get-samples experiment) columns)))
+	  do
+	     (when (> height 0)
+	       (setf (aref data (floor height) index) 1)))
+     data))
 
-(defun process (sample)
+(defun save-ppm (data columns stream)
+  (format stream "P1~%")
+  (format stream "~d 64~%" columns)
+  (loop for row from 0 below 64 do
+    (loop for column from 0 below columns do
+      (format stream "~a " (aref data row column)))
+    (format stream "~%")))
+
+
+(defun process-sample (sample experiment)
   (format-sample sample)
-  (save-sample sample)
-  (save-downsample (sample-experiment sample))
-  (plot (sample-experiment sample)))
+  (add-sample sample experiment)
+  (plot experiment)
+
+  (save-samples (downsample (get-samples experiment) *downsample*)
+		experiment
+		"_downsample")
+  (plot experiment "_downsample")
+
+  (with-open-file (stream
+		   (format nil "assets/~d_downsample.ppm" experiment)
+		   :direction :output
+		   :if-exists :overwrite
+		   :if-does-not-exist :create)
+    (save-ppm (ppm 3763067400 *downsample*)
+	      *downsample*
+	      stream)))
+
 
 (defun start-experiment (experiment)
   (setf *running* experiment)
@@ -129,7 +207,7 @@
 	   (*paused*
 	    (format t "Paused~%"))
 	   (t
-	    (process (parse-sample experiment (get-sample)))))
+	    (process-sample (parse-raw-sample (get-sample)) experiment)))
      (sleep 10))
   (format t "Stopping~%"))
 
@@ -142,18 +220,6 @@
 
 (defun resume-experiment ()
   (setf *paused* nil))
-
-(defun path-to-experiment (path)
-  (read-from-string
-   (subseq
-    (file-namestring path)
-    0
-    (position #\. (file-namestring path)))))
-
-(defun get-experiments ()
-  (reverse (mapcar #'path-to-experiment
-		   (remove-if (lambda (path) (position #\_ (file-namestring path)))
-			      (uiop:directory-files "./experiments/")))))
 
 (defun delete-experiment (experiment)
   (when (equal experiment *running*)

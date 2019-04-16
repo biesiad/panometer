@@ -1,8 +1,3 @@
-(require :cl-json)
-(require :hunchentoot)
-(require :easy-routes)
-(require :cl-who)
-
 ;; (defpackage :panometer
 ;;   (:use
 ;;    :cl
@@ -156,31 +151,43 @@
     (format-sample sample out)
     (close out)))
 
-(defparameter samples (mapcar
-		 #'sample-height
-		 (downsample (get-samples (nth 10 (get-experiments))) 10)))
 
 (defun ppm (experiment columns)
   (let* ((data (make-array `(64 ,columns) :initial-element 0))
 	 (samples (mapcar
 		   #'sample-height
 		   (downsample (get-samples experiment) columns)))
-	 (offset (apply #'min samples)))
+	 (offset (max (apply #'min samples) 0)))
     (loop for index from 0
        and height in samples
-       do
+	  do
 	 (when (> height 0)
-	   (setf (aref data (floor (+ 10 (- height offset))) index) 1)))
+	   (setf (aref data (floor (+ 10 (- (max height 0) offset))) index) 1)))
     data))
 
 (defun format-ppm (data columns stream)
   (format stream "P1~%")
   (format stream "~d 64~%" columns)
-  (loop for row from 0 below 64 do
+  (loop for row from 63 downto 0 do
     (loop for column from 0 below columns do
       (format stream "~a " (aref data row column)))
     (format stream "~%")))
 
+(dolist (experiment (get-experiments))
+  (print experiment)
+
+  (save-samples (downsample (get-samples experiment) *downsample*)
+		experiment
+		"_downsample")
+  (plot experiment "_downsample")
+
+  (with-open-file (stream
+		   (format nil "assets/~d_downsample.ppm" experiment)
+		   :direction :output
+		   :if-exists :overwrite
+		   :if-does-not-exist :create)
+    (format-ppm (ppm experiment *downsample*) *downsample* stream))
+  ("done"))
 
 (defun process-sample (sample experiment)
   (format-sample sample)
@@ -238,8 +245,14 @@
     (when (probe-file plot) (delete-file plot))
     (when (probe-file plot-downsample) (delete-file plot-downsample))))
 
-			  
+
+
 ;; web
+
+(require :cl-json)
+(require :hunchentoot)
+(require :easy-routes)
+(require :cl-who)
 
 (defparameter *hostname* "http://192.168.1.7")
 

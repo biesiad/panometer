@@ -156,19 +156,24 @@
     (format-sample sample out)
     (close out)))
 
+(defparameter samples (mapcar
+		 #'sample-height
+		 (downsample (get-samples (nth 10 (get-experiments))) 10)))
 
 (defun ppm (experiment columns)
-  (let ((data (make-array `(64 ,columns) :initial-element 0)))
+  (let* ((data (make-array `(64 ,columns) :initial-element 0))
+	 (samples (mapcar
+		   #'sample-height
+		   (downsample (get-samples experiment) columns)))
+	 (offset (apply #'min samples)))
     (loop for index from 0
-	  and height in (mapcar
-			 #'sample-height
-			 (reverse (downsample (get-samples experiment) columns)))
-	  do
-	     (when (> height 0)
-	       (setf (aref data (floor height) index) 1)))
-     data))
+       and height in samples
+       do
+	 (when (> height 0)
+	   (setf (aref data (floor (+ 10 (- height offset))) index) 1)))
+    data))
 
-(defun save-ppm (data columns stream)
+(defun format-ppm (data columns stream)
   (format stream "P1~%")
   (format stream "~d 64~%" columns)
   (loop for row from 0 below 64 do
@@ -192,7 +197,7 @@
 		   :direction :output
 		   :if-exists :overwrite
 		   :if-does-not-exist :create)
-    (save-ppm (ppm 3763067400 *downsample*)
+    (format-ppm (ppm experiment *downsample*)
 	      *downsample*
 	      stream)))
 

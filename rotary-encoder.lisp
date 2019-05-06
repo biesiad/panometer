@@ -1,7 +1,7 @@
 (defparameter *gpio-path* "/sys/class/gpio")
 
-(defparameter *lpin* 10)
-(defparameter *hpin* 16)
+(defparameter *lpin* 26)
+(defparameter *hpin* 19)
 
 (defun gpio-control (pin action)
   (with-open-file (file (format nil "~a/~a" *gpio-path* (string-downcase action))
@@ -56,16 +56,14 @@
   (when (> *cursor* 0)
     (decf *cursor*)))
 
-(defun process ()
-  (let ((get-position (make-get-position)))
-    (case (funcall get-position)
-      (left
-       (cursor-inc)
-       (print *cursor*))
-      (right
-       (cursor-dec)
-       (print *cursor*)))
-    (sleep 1)))
+(defun process (get-position)
+  (case (funcall get-position)
+    (left
+     (cursor-inc)
+     (format t "left  -> ~a" *cursor*))
+    (right
+     (cursor-dec)
+     (format t "right -> ~a" *cursor*))))
 
 
 (defvar *running* nil)
@@ -74,14 +72,15 @@
 
 (defun start ()
   (setf *running* t)
-  (loop
-    (if *running*
-	(process)
-	(return))))
+  (let ((get-position (make-get-position)))
+    (loop
+      (if *running*
+	  (process)
+	  (return)))))
 
 
-;; (gpio-control 16 'export)
-;; (gpio-control 10 'export)
+(gpio-control *lpin* 'export)
+(gpio-control *hpin* 'export)
 
 (start)
 (stop)

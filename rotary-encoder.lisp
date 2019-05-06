@@ -1,16 +1,24 @@
-(defun read-gpio-pin (pin)
-  ;;  (nth (random 4) '("00" "01" "11" "10")))
-  (with-open-file (file (format nil "/sys/class/gpio/gpio~d/value" pin)
-			:direction :input
-			:element-type 'unsigned-byte)
-    (read-byte file)))
+(defparameter *gpio-path* "/sys/class/gpio")
 
-(defun write-gpio-pin (pin)
-  (with-open-file (file (format nil "/sys/class/gpio/gpio~d/value" pin)
+(defparameter *lpin* 10)
+(defparameter *hpin* 16)
+
+(defun gpio-control (pin action)
+  (with-open-file (file (format nil "~a/~a" *gpio-path* (string-downcase action))
+			:direction :output
+			:if-exists :overwrite)
+    (format file "~d" pin)))
+
+(defun gpio-read (pin attribute)
+  (with-open-file (file (format nil "~a/gpio~d/~a" *gpio-path* pin (string-downcase attribute))
+			:direction :input)
+    (parse-integer (read-line file))))
+
+(defun gpio-write (pin attribute value)
+  (with-open-file (file (format nil "~a/gpio~d/~a" *gpio-path* pin (string-downcase attribute))
 			:direction :output
 			:element-type 'unsigned-byte)
-    (write-byte file)))
-
+    (format file "~a" value)))
 
 
 (defun encoder-to-state (last current)
@@ -26,42 +34,41 @@
 (defun make-get-position ()
   (let ((last-value nil))
     (lambda ()
-      (let ((current-value (read-gpio-pin 26)))
+      (let ((current-value (format nil "~a~a"
+				    (gpio-read *lpin* 'value)
+				    (gpio-read *hpin* 'value))))
 	(if (null last-value)
 	    (progn
 	      (setf last-value current-value)
 	      'neutral)
 	    (encoder-to-state last-value current-value))))))
 
-(let ((get-position (make-get-position)))
-  (print (funcall get-position))
-  (print (funcall get-position))
-  (print (funcall get-position)))
-
 
 (defvar *cursor* 0)
 
 (defvar *menu-length* 10)
 
-(defun inc-cursor ()
+(defun cursor-inc ()
   (when (< *cursor* (- *menu-length* 1))
     (incf *cursor*)))
 
-(defun dec-cursor ()
+(defun cursor-dec ()
   (when (> *cursor* 0)
     (decf *cursor*)))
 
 (defun process ()
-  (case (get-position)
-    (left
-     (inc-cursor)
-     (print *cursor*))
-    (right
-     (dec-cursor)
-     (print *cursor*)))
-  (sleep 1))
+  (let ((get-position (make-get-position)))
+    (case (funcall get-position)
+      (left
+       (cursor-inc)
+       (print *cursor*))
+      (right
+       (cursor-dec)
+       (print *cursor*)))
+    (sleep 1)))
 
-(defparameter *running* nil)
+
+(defvar *running* nil)
 
 (defun stop () (setf *running* nil))
 
@@ -72,6 +79,9 @@
 	(process)
 	(return))))
 
-(start)
 
+;; (gpio-control 16 'export)
+;; (gpio-control 10 'export)
+
+(start)
 (stop)

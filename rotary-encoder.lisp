@@ -1,7 +1,7 @@
 (defparameter *gpio-path* "/sys/class/gpio")
 
-(defparameter *lpin* 26)
-(defparameter *hpin* 19)
+(defparameter *hpin* 26)
+(defparameter *lpin* 19)
 
 (defun gpio-control (pin action)
   (with-open-file (file (format nil "~a/~a" *gpio-path* (string-downcase action))
@@ -26,10 +26,12 @@
 		(format nil "~a~a" last current)
 		:radix 2)))
     (case state
-      ((#b0001 #b0111 #b1110 #b1000) 'left)
-      ((#b0010 #b1011 #b1101 #b0100) 'right)
+      ((#b0001 #b0111 #b1110 #b1000) 'right)
+      ((#b0010 #b1011 #b1101 #b0100) 'left)
       ((#b0000 #b0101 #b1111 #b1010) 'neutral)
-      (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
+      (otherwise 'neutral))))
+;;      (otherwise (progn (format t "ERROR: ~4,'0b~%" state) 'neutral)))))
+;;      (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
 
 (defun make-get-position ()
   (let ((last-value nil))
@@ -56,17 +58,23 @@
   (when (> *cursor* 0)
     (decf *cursor*)))
 
-(defun process (get-position)
-  (case (funcall get-position)
-    (left
-     (cursor-inc)
-     (format t "left  -> ~a" *cursor*))
+(defun process (position)
+  (when (eq position *last-position*) (return-from process))
+  (case position
     (right
+     (cursor-inc)
+     (format t "~a~%" *cursor*)
+     (sleep 0.05))
+    (left
      (cursor-dec)
-     (format t "right -> ~a" *cursor*))))
+     (format t "~a~%" *cursor*)
+     (sleep 0.05))     
+  (setf *last-position* position))
 
 
 (defvar *running* nil)
+
+(defvar *last-position* 'neutral)
 
 (defun stop () (setf *running* nil))
 
@@ -74,9 +82,9 @@
   (setf *running* t)
   (let ((get-position (make-get-position)))
     (loop
-      (if *running*
-	  (process)
-	  (return)))))
+       (if *running*
+	   (process (funcall get-position))
+	   (return)))))
 
 
 (gpio-control *lpin* 'export)

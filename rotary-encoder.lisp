@@ -38,10 +38,12 @@
 		(format nil "~a~a" last current)
 		:radix 2)))
     (case state
-      ((#b0001 #b0111 #b1110 #b1000) 'left)
-      ((#b0010 #b1011 #b1101 #b0100) 'right)
+      ((#b0001 #b0111 #b1110 #b1000) 'right)
+      ((#b0010 #b1011 #b1101 #b0100) 'left)
       ((#b0000 #b0101 #b1111 #b1010) 'neutral)
-      (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
+      (otherwise 'neutral))))
+;;      (otherwise (progn (format t "ERROR: ~4,'0b~%" state) 'neutral)))))
+;;      (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
 
 ;; (defparameter get-direction
 ;;   (let ((last-value nil))
@@ -80,6 +82,7 @@
 
 (gpio-control *lpin* 'export)
 (gpio-control *hpin* 'export)
+
 
 (start-rotary-encoder)
 

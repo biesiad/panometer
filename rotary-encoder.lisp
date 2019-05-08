@@ -1,7 +1,20 @@
-(defparameter *gpio-path* "/sys/class/gpio")
+;; menu
 
+(defvar *menu-position* 0)
+
+(defun update-menu (direction)
+   (cond ((eq direction 'left)
+	 (incf *menu-position*))
+	((eq direction 'right)
+	 (decf *menu-position*))))
+
+
+;; rotary encoder
+
+(defparameter *gpio-path* "/sys/class/gpio")
 (defparameter *lpin* 26)
 (defparameter *hpin* 19)
+(defvar *running* nil)
 
 (defun gpio-control (pin action)
   (with-open-file (file (format nil "~a/~a" *gpio-path* (string-downcase action))
@@ -20,7 +33,6 @@
 			:element-type 'unsigned-byte)
     (format file "~a" value)))
 
-
 (defun encoder-to-state (last current)
   (let ((state (parse-integer
 		(format nil "~a~a" last current)
@@ -31,56 +43,47 @@
       ((#b0000 #b0101 #b1111 #b1010) 'neutral)
       (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
 
-(defun make-get-position ()
-  (let ((last-value nil))
-    (lambda ()
-      (let ((current-value (format nil "~a~a"
-				    (gpio-read *lpin* 'value)
-				    (gpio-read *hpin* 'value))))
-	(if (null last-value)
-	    (progn
-	      (setf last-value current-value)
-	      'neutral)
-	    (encoder-to-state last-value current-value))))))
+;; (defparameter get-direction
+;;   (let ((last-value nil))
+;;     (lambda ()
+;;       (let ((current-value (format nil "~a~a"
+;; 				    (gpio-read *lpin* 'value)
+;; 				    (gpio-read *hpin* 'value))))
+;; 	(if (null last-value)
+;; 	    (progn
+;; 	      (setf last-value current-value)
+;; 	      'neutral)
+;; 	    (encoder-to-state last-value current-value))))))
 
+(setf get-direction
+      (lambda ()
+	(sleep 1) 
+	(nth (random 3) '(left right neutral))))
 
-(defvar *cursor* 0)
+(defun process-direction (direction on-change)
+  (when (not (eq direction 'neutral))
+    (format t "Changed to ~a~%" direction)
+    (funcall on-change direction)))
 
-(defvar *menu-length* 10)
-
-(defun cursor-inc ()
-  (when (< *cursor* (- *menu-length* 1))
-    (incf *cursor*)))
-
-(defun cursor-dec ()
-  (when (> *cursor* 0)
-    (decf *cursor*)))
-
-(defun process (get-position)
-  (case (funcall get-position)
-    (left
-     (cursor-inc)
-     (format t "left  -> ~a" *cursor*))
-    (right
-     (cursor-dec)
-     (format t "right -> ~a" *cursor*))))
-
-
-(defvar *running* nil)
-
-(defun stop () (setf *running* nil))
-
-(defun start ()
+(defun start-rotary-encoder ()
   (setf *running* t)
-  (let ((get-position (make-get-position)))
-    (loop
-      (if *running*
-	  (process)
-	  (return)))))
+  (loop
+    (if *running*
+	(process-direction (funcall get-direction) #'update-menu)
+	(return))))
 
+(defun stop-rotary-encoder ()
+  (setf *running* nil))
+
+
+;; all
 
 (gpio-control *lpin* 'export)
 (gpio-control *hpin* 'export)
 
-(start)
-(stop)
+(start-rotary-encoder)
+
+(stop-rotary-encoder)
+
+
+

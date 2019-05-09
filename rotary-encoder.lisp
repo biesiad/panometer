@@ -1,20 +1,6 @@
-;; menu
-
-(defvar *menu-position* 0)
-
-(defun update-menu (direction)
-   (cond ((eq direction 'left)
-	 (incf *menu-position*))
-	((eq direction 'right)
-	 (decf *menu-position*))))
-
-
-;; rotary encoder
+;; low level
 
 (defparameter *gpio-path* "/sys/class/gpio")
-(defparameter *lpin* 26)
-(defparameter *hpin* 19)
-(defvar *running* nil)
 
 (defun gpio-control (pin action)
   (with-open-file (file (format nil "~a/~a" *gpio-path* (string-downcase action))
@@ -33,6 +19,35 @@
 			:element-type 'unsigned-byte)
     (format file "~a" value)))
 
+
+;; menu
+
+(defvar *menu-position* 0)
+
+(defun update-menu (direction)
+   (cond ((eq direction 'left)
+	 (incf *menu-position*))
+	((eq direction 'right)
+	 (decf *menu-position*)))
+  (format t "~a~%" *menu-position*))
+
+
+;; button
+
+(defparameter *button-pin* 10)
+
+(defun get-button-state ()
+  (gpio-read *button-pin* 'value))
+
+(defun get-button-state () "1")
+
+
+;; rotary encoder
+
+(defparameter *lpin* 26)
+(defparameter *hpin* 19)
+(defvar *running* nil)
+
 (defun encoder-to-state (last current)
   (let ((state (parse-integer
 		(format nil "~a~a" last current)
@@ -42,8 +57,6 @@
       ((#b0010 #b1011 #b1101 #b0100) 'left)
       ((#b0000 #b0101 #b1111 #b1010) 'neutral)
       (otherwise 'neutral))))
-;;      (otherwise (progn (format t "ERROR: ~4,'0b~%" state) 'neutral)))))
-;;      (otherwise (error (format nil "Invalid encoder state: ~4,'0b" state))))))
 
 ;; (defparameter get-direction
 ;;   (let ((last-value nil))
@@ -57,36 +70,43 @@
 ;; 	      'neutral)
 ;; 	    (encoder-to-state last-value current-value))))))
 
-(setf get-direction
+(defparameter get-rotary-encoder-state
       (lambda ()
 	(sleep 1) 
 	(nth (random 3) '(left right neutral))))
 
-(defun process-direction (direction on-change)
+
+;; all
+
+(defun process-rotary-encoder-state (direction on-change)
   (when (not (eq direction 'neutral))
     (format t "Changed to ~a~%" direction)
     (funcall on-change direction)))
 
-(defun start-rotary-encoder ()
+(defun process-button-state (state on-update)
+  (declare (ignore on-update))
+  (when (string= state "1") (format t "click~%")))
+
+(defun start ()
   (setf *running* t)
   (loop
-    (if *running*
-	(process-direction (funcall get-direction) #'update-menu)
-	(return))))
+    (cond (*running*
+	    (process-rotary-encoder-state (funcall get-rotary-encoder-state)
+					  #'update-menu)
+	    (process-button-state (get-button-state)
+				  #'update-menu))
+	   (t (return)))))
 
-(defun stop-rotary-encoder ()
+(defun stop ()
   (setf *running* nil))
 
 
-;; all
+;; (gpio-control *lpin* 'export)
+;; (gpio-control *hpin* 'export)
+;; (gpio-control *button-pin* 'export)
 
-(gpio-control *lpin* 'export)
-(gpio-control *hpin* 'export)
-
-
-(start-rotary-encoder)
-
-(stop-rotary-encoder)
+(start)
+;; (stop)
 
 
 

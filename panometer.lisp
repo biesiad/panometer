@@ -7,6 +7,10 @@
 
 ;; (in-package :panometer)
 
+(require :swank)
+(swank:create-server :port 4005 :dont-close t)
+
+
 (defvar *container-height* 60)
 
 (defvar *running* nil)

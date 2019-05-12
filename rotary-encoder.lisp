@@ -34,12 +34,10 @@
 
 ;; button
 
-(defparameter *button-pin* 10)
+(defparameter *button-pin* 21)
 
 (defun get-button-state ()
   (gpio-read *button-pin* 'value))
-
-(defun get-button-state () "1")
 
 
 ;; rotary encoder
@@ -58,44 +56,47 @@
       ((#b0000 #b0101 #b1111 #b1010) 'neutral)
       (otherwise 'neutral))))
 
-;; (defparameter get-direction
-;;   (let ((last-value nil))
-;;     (lambda ()
-;;       (let ((current-value (format nil "~a~a"
-;; 				    (gpio-read *lpin* 'value)
-;; 				    (gpio-read *hpin* 'value))))
-;; 	(if (null last-value)
-;; 	    (progn
-;; 	      (setf last-value current-value)
-;; 	      'neutral)
-;; 	    (encoder-to-state last-value current-value))))))
-
 (defparameter get-rotary-encoder-state
-      (lambda ()
-	(sleep 1) 
-	(nth (random 3) '(left right neutral))))
+  (let ((last-value nil))
+    (lambda ()
+      (let ((current-value (format nil "~a~a"
+				    (gpio-read *lpin* 'value)
+				    (gpio-read *hpin* 'value))))
+	(if (null last-value)
+	    (progn
+	      (setf last-value current-value)
+	      'neutral)
+	    (encoder-to-state last-value current-value))))))
+
+;; (defparameter get-rotary-encoder-state
+;;       (lambda ()
+;; 	(sleep 1) 
+;; 	(nth (random 3) '(left right neutral))))
 
 
 ;; all
 
 (defun process-rotary-encoder-state (direction on-change)
   (when (not (eq direction 'neutral))
-    (format t "Changed to ~a~%" direction)
-    (funcall on-change direction)))
+    (funcall on-change direction)
+    (sleep 0.01)))
 
 (defun process-button-state (state on-update)
   (declare (ignore on-update))
-  (when (string= state "1") (format t "click~%")))
+  (when (= state 1)
+    (format t "click~%")
+    (sleep 0.5)))
 
 (defun start ()
   (setf *running* t)
   (loop
-    (cond (*running*
+     (if *running*
+	  (progn
 	    (process-rotary-encoder-state (funcall get-rotary-encoder-state)
 					  #'update-menu)
 	    (process-button-state (get-button-state)
 				  #'update-menu))
-	   (t (return)))))
+	  (return))))
 
 (defun stop ()
   (setf *running* nil))

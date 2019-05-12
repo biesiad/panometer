@@ -125,26 +125,32 @@
 	   (experiment-file experiment suffix)
 	   (plot-file experiment suffix))))
 
-(defun downsample (samples count)
-  (labels ((iter (samples result index ratio next)
-	     (cond ((null samples) (reverse result))
-		   ((=
-		     (floor (+ index ratio))
-		     (floor next))
-		    (iter (rest samples)
-			  (cons (first samples) result)
-			  (+ index 1)
-			  ratio
-			  (+ next ratio)))
-		   (t
-		    (iter (rest samples)
-			  result
-			  (+ index 1)
-			  ratio
-			  next)))))
+(defun display (experiment)
+  (uiop:run-program
+   (format nil "python display.py ./assets/~d_downsample.ppm" experiment)))
 
-    (let ((ratio (/ (length samples) count)))
-      (iter samples '() 0 ratio ratio))))
+
+(defun downsample (samples count)
+  (if (> count (length samples))
+      samples
+      (labels ((iter (samples result index ratio next)
+		 (cond ((null samples) (reverse result))
+		       ((=
+			 (floor (+ index ratio))
+			 (floor next))
+			(iter (rest samples)
+			      (cons (first samples) result)
+			      (+ index 1)
+			      ratio
+			      (+ next ratio)))
+		       (t
+			(iter (rest samples)
+			      result
+			      (+ index 1)
+			      ratio
+			      next)))))
+	(let ((ratio (/ (length samples) count)))
+	  (iter samples '() 0 ratio ratio)))))
 
 (defun add-sample (sample experiment)
   (ensure-directories-exist (experiment-file experiment))
@@ -166,7 +172,11 @@
        and height in samples
 	  do
 	 (when (> height 0)
-	   (setf (aref data (floor (+ 10 (- (max height 0) offset))) index) 1)))
+	   (setf (aref data
+		       (min ;; truncate to 64
+			63
+			(floor (+ 10 (- (max height 0) offset))))
+		       index) 1)))
     data))
 
 (defun format-ppm (data columns stream)
@@ -174,43 +184,68 @@
   (format stream "~d 64~%" columns)
   (loop for row from 63 downto 0 do
     (loop for column from 0 below columns do
-      (format stream "~a " (aref data row column)))
+	 (format stream "~a " (aref data row column)))
     (format stream "~%")))
 
-(dolist (experiment (get-experiments))
-  (print experiment)
+(defun format-ppm-binary (data columns stream)
+  (with-input-from-string (is (format nil "P6~%~d 64~%255~%" columns))
+    (do ((c (read-char is) (read-char is nil 'the-end)))
+	((not (characterp c)))
+      (write-byte (char-code c) stream)))
+  
+  (loop for row from 63 downto 0 do
+    (loop for column from 0 below columns do
+	 (if (= (aref data row column) 1)
+	     (progn
+	       (write-byte 255 stream)
+	       (write-byte 255 stream)
+	       (write-byte 255 stream))
+	     (progn
+	       (write-byte 0 stream)
+	       (write-byte 0 stream)
+	       (write-byte 0 stream))))))
 
-  (save-samples (downsample (get-samples experiment) *downsample*)
-		experiment
-		"_downsample")
-  (plot experiment "_downsample")
+;; (dolist (experiment (get-experiments))
+;;   (format t "Starting ~d... " experiment)
 
-  (with-open-file (stream
-		   (format nil "assets/~d_downsample.ppm" experiment)
-		   :direction :output
-		   :if-exists :overwrite
-		   :if-does-not-exist :create)
-    (format-ppm (ppm experiment *downsample*) *downsample* stream))
-  ("done"))
+;;   (save-samples (downsample (get-samples experiment) *downsample*)
+;; 		experiment
+;; 		"_downsample")
+;;   (plot experiment "_downsample")
+
+;;   (with-open-file (stream
+;; 		   (format nil "assets/~d_downsample.ppm" experiment)
+;; 		   :element-type '(unsigned-byte 8)
+;; 		   :direction :output
+;; 		   :if-exists :overwrite
+;; 		   :if-does-not-exist :create)
+;;     (format-ppm-binary (ppm experiment *downsample*) *downsample* stream))
+;;   (format t "done~%"))
+
 
 (defun process-sample (sample experiment)
   (format-sample sample)
   (add-sample sample experiment)
+
   (plot experiment)
 
+  ;; downsample and save experiment data
   (save-samples (downsample (get-samples experiment) *downsample*)
 		experiment
 		"_downsample")
-  (plot experiment "_downsample")
+  ;; (plot experiment "_downsample")
 
+  ;; render downsampled ppm and display
   (with-open-file (stream
 		   (format nil "assets/~d_downsample.ppm" experiment)
+		   :element-type '(unsigned-byte 8)
 		   :direction :output
 		   :if-exists :overwrite
 		   :if-does-not-exist :create)
-    (format-ppm (ppm experiment *downsample*)
+    (format-ppm-binary (ppm experiment *downsample*)
 	      *downsample*
-	      stream)))
+	      stream))
+    (display experiment))
 
 
 (defun start-experiment (experiment)
@@ -224,8 +259,8 @@
 	    (format t "Paused~%"))
 	   (t
 	    (process-sample (parse-raw-sample (get-sample)) experiment)))
-     (sleep 10))
-  (format t "Stopping~%"))
+     (sleep 60))
+   (format t "Stopping~%"))
 
 (defun stop-experiment ()
   (setf *running* nil)
@@ -243,12 +278,13 @@
   (let ((data (format nil "./experiments/~d.csv" experiment))
 	(data-downsample (format nil "./experiments/~d_downsample.csv" experiment))
 	(plot (format nil "./assets/~d.png" experiment))
-    	(plot-downsample (format nil "./assets/~d_downsample.png" experiment)))
+    	(plot-downsample (format nil "./assets/~d_downsample.png" experiment))
+	(ppm (format nil "./assets/~d_downsample.ppm" experiment)))
     (when (probe-file data) (delete-file data))
     (when (probe-file data-downsample) (delete-file data-downsample))
     (when (probe-file plot) (delete-file plot))
-    (when (probe-file plot-downsample) (delete-file plot-downsample))))
-
+    (when (probe-file plot-downsample) (delete-file plot-downsample))
+    (when (probe-file ppm) (delete-file ppm))))
 
 
 ;; web
@@ -369,3 +405,5 @@
  		:port *port*))
 
 (format t "Started server on ~a" *port*)
+
+(start-experiment (get-universal-time))

@@ -161,22 +161,28 @@
     (format-sample sample out)
     (close out)))
 
-
 (defun ppm (experiment columns)
   (let* ((data (make-array `(64 ,columns) :initial-element 0))
 	 (samples (mapcar
 		   #'sample-height
 		   (downsample (get-samples experiment) columns)))
-	 (offset (max (apply #'min samples) 0)))
-    (loop for index from 0
+	 (offset-neg (max (- (apply #'min samples) 10) 0))
+	 ;; using last to smooth the curve by calculating a mean of last 5 samples
+	 (last '()))
+    (loop for column from 0
        and height in samples
-	  do
-	 (when (> height 0)
-	   (setf (aref data
-		       (min ;; truncate to 64
-			63
-			(floor (+ 10 (- (max height 0) offset))))
-		       index) 1)))
+       do
+	 (if (> 5 (length last))
+	     (push height last)
+	     (setf last (reverse (cdr (reverse last)))))
+	 (setf (aref data
+		     (min 63
+			  (floor (- (max (/ (apply #'+ last)
+					    (length last))
+					 0)
+				    offset-neg)))
+		     column)
+	       1))
     data))
 
 (defun format-ppm (data columns stream)
@@ -205,23 +211,6 @@
 	       (write-byte 0 stream)
 	       (write-byte 0 stream))))))
 
-;; (dolist (experiment (get-experiments))
-;;   (format t "Starting ~d... " experiment)
-
-;;   (save-samples (downsample (get-samples experiment) *downsample*)
-;; 		experiment
-;; 		"_downsample")
-;;   (plot experiment "_downsample")
-
-;;   (with-open-file (stream
-;; 		   (format nil "assets/~d_downsample.ppm" experiment)
-;; 		   :element-type '(unsigned-byte 8)
-;; 		   :direction :output
-;; 		   :if-exists :overwrite
-;; 		   :if-does-not-exist :create)
-;;     (format-ppm-binary (ppm experiment *downsample*) *downsample* stream))
-;;   (format t "done~%"))
-
 
 (defun process-sample (sample experiment)
   (format-sample sample)
@@ -246,7 +235,6 @@
 	      *downsample*
 	      stream))
     (display experiment))
-
 
 (defun start-experiment (experiment)
   (setf *running* experiment)

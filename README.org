@@ -49,3 +49,13 @@ sudo systemctl start panometer.service
 
 
 sudo apt-get install libiw-dev
+
+
+* When the device starts it starts a new experiment
+* Button press (3 seconds) starts a new experiment
+* When experiment running
+** Display play icon
+** Button click pauses the experiment (pause icon)
+* When experiment paused
+** Display pause icon
+** Button click resumes the experiment

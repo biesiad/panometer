@@ -1,18 +1,12 @@
-# the compiler: gcc for C program, define as g++ for C++
-CC = gcc
+TARGET = sketch/sketch
 
-# compiler flags:
-#  -g    adds debugging information to the executable file
-#  -Wall turns on most, but not all, compiler warnings
-CFLAGS  = -g -Wall
+all: compile upload
 
-# the build target executable:
-TARGET = panometer
+compile: $(TARGET).ino
+	arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old ./sketch
 
-all: $(TARGET)
-
-$(TARGET): $(TARGET).c
-	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c
+upload: $(TARGET).arduino.avr.nano.hex
+	arduino-cli upload -p /dev/tty.wchusbserial1410 --fqbn arduino:avr:nano:cpu=atmega328old sketch/
 
 clean:
-	$(RM) $(TARGET)
+	rm $(TARGET).arduino.avr.nano.hex

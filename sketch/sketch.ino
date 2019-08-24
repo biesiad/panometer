@@ -1,7 +1,8 @@
 #include <EEPROM.h>
+// #include <SPI.h>
 #include <Wire.h>
-//#include <Adafruit_GFX.h>
-//#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define RECENT_SAMPLES 5            // number of samples for running average
 #define MAX_SAMPLES 256             // 42h for 1 evert 10 minutes interval
@@ -54,57 +55,60 @@ byte average(byte *arr, byte size)
 
 void setup()
 {
+  Serial.begin(115200);
   Wire.begin();
 
-  // Serial.println("Scanning I2C");
-  // for (int i = 1; i < 120; i++) {
-  //   Serial.print("trying: ");
-  //   Serial.println(i);
-  //   Wire.beginTransmission(i);
-  //   Serial.println("begin");
-  //   Wire.write(1);
-  //   Serial.println("write");
-  //   if (Wire.endTransmission() == 0) {
-  //     Serial.print("FOUND: ");
-  //     Serial.println(i, HEX);
-  //   } else {
-  //     Serial.print(".");
-  //   }
-  // }
-  // Serial.print("DONE");
+  Serial.println("Scanning I2C.");
+  for (int i = 1; i < 120; i++) {
+    Wire.beginTransmission(i);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("Found: ");
+      Serial.print(i, HEX);
+    } else {
+      Serial.print(".");
+    }
+  }
+  Serial.println(" OK");
 
-  Serial.println("Initializing serial");
-  Serial.begin(115200);
-
-  Serial.println("Initializing button");
+  Serial.print("Initializing button. ");
   pinMode(BUTTON_PIN, INPUT);
   buttonActive = false;
   buttonHoldActive = false;
+  Serial.println("OK");
 
-  Serial.println("Initializing VL6180 (sensor)");
-  Wire.beginTransmission(0x3C);
+  Serial.println("Initializing VL6180 (sensor).");
+
+  Wire.beginTransmission(0x29);
   if (int res = Wire.endTransmission() != 0)
   {
-    Serial.print("ERROR: ");
-    Serial.print(res);
-    Serial.print(" Exit.");
-    exit(-1);
+    Serial.print("VL6180 allocation failed. ERROR");
+    for(;;);
   }
 
   // Serial.println("Initializing SSD1306 (display)");
-  // if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-  //   Serial.println(F("SSD1306 allocation failed"));
+  // if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  // {
+  //   Serial.print("SSD1306 allocation failed. Exiting.");
   //   for(;;);
   // }
+
+  // display.display();
+  return;
+
+  // display.setTextSize(1);
+  // display.setTextColor(WHITE);
 
   // Draw a single pixel in white
   // display.drawPixel(10, 10, WHITE);
 
-  Serial.println("Loading last sample index");
-  // EEPROM.write(0, index);
+  EEPROM.write(0, 0);
+  Serial.print("Loading last sample index. ");
   lastSampleIndex = EEPROM.read(INDEX_OFFSET);
+  Serial.print("Loaded ");
+  Serial.print(lastSampleIndex, DEC);
+  Serial.println(". OK");
 
-  Serial.println("Loading recent samples");
+  Serial.print("Loading recent samples. ");
   recent.index = 0;
   recent.size = RECENT_SAMPLES;
 
@@ -113,6 +117,7 @@ void setup()
   {
     add_recent(&recent, EEPROM.read(SAMPLES_OFFSET + lastSampleIndex - n));
   };
+  Serial.println("OK");
 
   Serial.println("Starting");
   paused = true;
@@ -132,9 +137,9 @@ void readButton()
     if (buttonActive && (millis() > buttonActiveTime + BUTTON_HOLD_DELAY) && !buttonHoldActive)
     {
       buttonHoldActive = true;
+      Serial.println("Resetting");
       EEPROM.write(INDEX_OFFSET, lastSampleIndex);
       lastSampleIndex = 0;
-      Serial.println("reset");
     }
   }
   else
@@ -148,8 +153,8 @@ void readButton()
       else
       {
         paused = !paused;
-        Serial.print("paused: ");
-        Serial.println(paused ? "true" : "false");
+        Serial.println(" ");
+        Serial.println(paused ? "Pausing." : "Resuming.");
       }
       buttonActive = 0;
     }
@@ -188,6 +193,8 @@ void readSample()
 
 void loop()
 {
+  return;
+
   readButton();
 
   if (paused)
@@ -203,13 +210,19 @@ void loop()
   {
     readSample();
     lastSampleTime = millis();
+    // drawSamples();
   }
 
   if (millis() % 1000 == 0)
   {
     Serial.print("Recording: ");
     Serial.println((millis() / 3000) % 2 ? '*' : ' ');
-    // display.drawPixel(10, 10, (millis() / 1000) % 2 ? WHITE : BLACK);
+    if ((millis() / 1000) % 2)
+    {
+      // int16_t x0, int16_t y0, int16_t r, uint16_t color
+      // display.drawCircle(10, 10, );
+    }
+
     // display.display();
   }
 }

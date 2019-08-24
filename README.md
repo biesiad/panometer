@@ -49,10 +49,10 @@ sudo systemctl enable /etc/systemd/system/panometer.service
 sudo systemctl start panometer.service
 ```
 
-# Common Lisp
+### Common Lisp
 * Install Clozure (armcl)
 ```
-sudo apt-get install libiw-dev
+sudo apt-get install libiw-dev armcl
 ```
 
 

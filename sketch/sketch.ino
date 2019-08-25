@@ -1,18 +1,17 @@
 #include <EEPROM.h>
-// #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
-#define RECENT_SAMPLES 5            // number of samples for running average
-#define MAX_SAMPLES 256             // 42h for 1 evert 10 minutes interval
-#define INDEX_OFFSET 0              // index byte address in EEPROM
-#define SAMPLES_OFFSET 8            // samples data address in EEPROM
-#define PAUSED_OFFSET 1             // paused byte address in EEPROM
-#define SAMPLE_DELAY 1000 * 60 * 10 // 1 every 10 minutes
-//#define SAMPLE_DELAY 1000
-#define BUTTON_HOLD_DELAY 2000 // push and hold delay ms
+#define RECENT_SAMPLES 3              // number of samples for running average
+#define MAX_SAMPLES 256               // 42h for 1 every 10 minutes interval
+#define NEXT_SAMPLE_INDEX_OFFSET 0                // index byte address in EEPROM
+#define SAMPLES_OFFSET 8              // samples data address in EEPROM
+#define PAUSED_OFFSET 1               // paused byte address in EEPROM
+#define SAMPLE_DELAY 1000 * 60 * 10   // 10 minutes
+#define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
 #define BUTTON_PIN 4
+#define PLOT_HEIGHT 50
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 64
 
 struct Recent
 {
@@ -21,16 +20,13 @@ struct Recent
   byte size;
 } recent;
 
-byte lastSampleIndex;
 unsigned long lastSampleTime;
 boolean paused;
 boolean buttonActive;
 unsigned long buttonActiveTime;
 boolean buttonHoldActive;
 
-// Adafruit_SSD1306 display(128, 64, &Wire, -1);
-
-void add_recent(struct Recent *recent, byte sample)
+void addRecent(struct Recent *recent, byte sample)
 {
   recent->array[recent->index] = sample;
   recent->index++;
@@ -57,8 +53,9 @@ void setup()
 {
   Serial.begin(115200);
   Wire.begin();
+  Serial.println("Starting");
 
-  Serial.println("Scanning I2C.");
+  Serial.println("Scanning I2C");
   for (int i = 1; i < 120; i++) {
     Wire.beginTransmission(i);
     if (Wire.endTransmission() == 0) {
@@ -68,60 +65,55 @@ void setup()
       Serial.print(".");
     }
   }
-  Serial.println(" OK");
+  Serial.println(".");
+  Serial.println("OK");
 
-  Serial.print("Initializing button. ");
+  Serial.println("Initializing button");
   pinMode(BUTTON_PIN, INPUT);
   buttonActive = false;
   buttonHoldActive = false;
   Serial.println("OK");
 
-  Serial.println("Initializing VL6180 (sensor).");
-
+  Serial.println("Probing VL6180");
   Wire.beginTransmission(0x29);
   if (int res = Wire.endTransmission() != 0)
   {
-    Serial.print("VL6180 allocation failed. ERROR");
+    Serial.println("Can't find VL6180 at 0x29");
     for(;;);
   }
+  Serial.println("OK");
 
-  // Serial.println("Initializing SSD1306 (display)");
-  // if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  // {
-  //   Serial.print("SSD1306 allocation failed. Exiting.");
-  //   for(;;);
-  // }
-
-  // display.display();
-  return;
-
-  // display.setTextSize(1);
-  // display.setTextColor(WHITE);
-
-  // Draw a single pixel in white
-  // display.drawPixel(10, 10, WHITE);
+  Serial.println("Probing SSD1306");
+  Wire.beginTransmission(0x29);
+  if (int res = Wire.endTransmission() != 0)
+  {
+    Serial.println("Can't find SSD1306 at 0x3C");
+    for(;;);
+  }
+  Serial.println("OK");
 
   EEPROM.write(0, 0);
-  Serial.print("Loading last sample index. ");
-  lastSampleIndex = EEPROM.read(INDEX_OFFSET);
+  Serial.println("Loading last sample index");
+  byte lastSampleIndex = EEPROM.read(NEXT_SAMPLE_INDEX_OFFSET) - 1;
   Serial.print("Loaded ");
-  Serial.print(lastSampleIndex, DEC);
-  Serial.println(". OK");
+  Serial.println(lastSampleIndex, DEC);
+  Serial.println("OK");
 
-  Serial.print("Loading recent samples. ");
+  Serial.println("Loading recent samples");
   recent.index = 0;
   recent.size = RECENT_SAMPLES;
 
   // load last RECENT_SAMPLES samples from EEPROM
   for (byte n = lastSampleIndex; n < RECENT_SAMPLES; n++)
   {
-    add_recent(&recent, EEPROM.read(SAMPLES_OFFSET + lastSampleIndex - n));
+    addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + lastSampleIndex - n));
   };
   Serial.println("OK");
 
-  Serial.println("Starting");
   paused = true;
   lastSampleTime = 0;
+
+  Serial.println("Paused");
 }
 
 void readButton()
@@ -138,8 +130,7 @@ void readButton()
     {
       buttonHoldActive = true;
       Serial.println("Resetting");
-      EEPROM.write(INDEX_OFFSET, lastSampleIndex);
-      lastSampleIndex = 0;
+      EEPROM.write(NEXT_SAMPLE_INDEX_OFFSET, 0);
     }
   }
   else
@@ -161,48 +152,72 @@ void readButton()
   }
 };
 
+// Reads a sample, calculates the average, and saves to EEPROM
 void readSample()
 {
   Serial.println("----------");
   Serial.println("Reading sample");
   byte sample = random(256);
 
-  Serial.print("lastSampleIndex: ");
-  Serial.println(lastSampleIndex);
+  byte sampleIndex = EEPROM.read(NEXT_SAMPLE_INDEX_OFFSET);
+  Serial.print("sampleIndex: ");
+  Serial.println(sampleIndex);
 
   Serial.print("sample: ");
   Serial.println(sample);
 
-  add_recent(&recent, sample);
+  addRecent(&recent, sample);
   byte avg = average(recent.array, recent.size);
 
   Serial.print("average: ");
   Serial.println(avg);
 
-  EEPROM.write(SAMPLES_OFFSET + lastSampleIndex, avg);
+  EEPROM.write(SAMPLES_OFFSET + sampleIndex, avg);
 
-  if (lastSampleIndex == (MAX_SAMPLES - 1))
+  if (sampleIndex == (MAX_SAMPLES - 1))
   {
     Serial.println("ERROR: Memory full. Exit.");
     exit(-1);
   }
 
-  EEPROM.write(INDEX_OFFSET, lastSampleIndex);
+  EEPROM.write(NEXT_SAMPLE_INDEX_OFFSET, sampleIndex + 1);
   Serial.println("----------");
 };
 
+void drawSamples()
+{
+  byte nextSampleIndex = EEPROM.read(NEXT_SAMPLE_INDEX_OFFSET);
+  byte boxY = DISPLAY_HEIGHT - PLOT_HEIGHT;
+  byte boxW = DISPLAY_WIDTH / nextSampleIndex;
+  byte boxX, boxH;
+
+  Serial.println('Samples:');
+  for (int i = 0; i < nextSampleIndex; i++)
+  {
+    boxX = i * boxW;
+    boxH = EEPROM.read(SAMPLES_OFFSET + i);
+    Serial.print('boxX: ');
+    Serial.print(boxX);
+    Serial.print(', boxY: ');
+    Serial.print(boxY);
+    Serial.print(', boxW: ');
+    Serial.print(boxW);
+    Serial.print(', boxH: ');
+    Serial.println(boxH);
+  }
+}
+
 void loop()
 {
-  return;
-
   readButton();
 
   if (paused)
   {
-    Serial.print("Paused. ");
-    Serial.println((millis() / 5000) % 2 ? '||' : ' ');
-    // display.drawPixel(10, 10, (millis() / 1000) % 2 ? WHITE : BLACK);
-    // display.display();
+    if (millis() % 1000 == 0)
+    {
+      Serial.print("Paused ");
+      Serial.println((millis() / 1000) % 2 ? '||' : ' ');
+    }
     return;
   }
 
@@ -210,19 +225,12 @@ void loop()
   {
     readSample();
     lastSampleTime = millis();
-    // drawSamples();
+    drawSamples();
   }
 
   if (millis() % 1000 == 0)
   {
     Serial.print("Recording: ");
-    Serial.println((millis() / 3000) % 2 ? '*' : ' ');
-    if ((millis() / 1000) % 2)
-    {
-      // int16_t x0, int16_t y0, int16_t r, uint16_t color
-      // display.drawCircle(10, 10, );
-    }
-
-    // display.display();
+    Serial.println((millis() / 1000) % 2 ? '*' : ' ');
   }
 }

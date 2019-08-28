@@ -1,8 +1,8 @@
 #include <EEPROM.h>
 #include <Wire.h>
+#include "Adafruit_VL6180X.h"
 
 #define RECENT_SAMPLES 3              // number of samples for running average
-#define MAX_SAMPLE_INDEX_OFFSET 255   // 42h for 1 every 10 minutes interval
 
 #define SAMPLE_INDEX_OFFSET 0         // index byte address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
@@ -14,6 +14,8 @@
 #define PLOT_HEIGHT 50
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 64
+
+Adafruit_VL6180X vl = Adafruit_VL6180X();
 
 struct Recent
 {
@@ -58,7 +60,8 @@ void setup()
   Serial.println("Starting");
 
   Serial.println("Scanning I2C");
-  for (int i = 1; i < 120; i++) {
+  for (int i = 1; i < 120; i++)
+  {
     Wire.beginTransmission(i);
     if (Wire.endTransmission() == 0) {
       Serial.print("Found: ");
@@ -70,10 +73,12 @@ void setup()
   Serial.println(".");
   Serial.println("OK");
 
-  Serial.println("Initializing button");
-  pinMode(BUTTON_PIN, INPUT);
-  buttonActive = false;
-  buttonHoldActive = false;
+  Serial.println("Initializing VL6180x");
+  if (!vl.begin())
+  {
+    Serial.println("Failed to find VL6180x");
+    while (1);
+  }
   Serial.println("OK");
 
   EEPROM.write(SAMPLE_INDEX_OFFSET, 0);
@@ -143,7 +148,14 @@ void readSample()
 {
   Serial.println("----------");
   Serial.println("Reading sample");
-  byte sample = random(100);
+  uint8_t sample = vl.readRange();
+  uint8_t status = vl.readRangeStatus();
+
+  if (status != VL6180X_ERROR_NONE) {
+    Serial.print("VL6180x Error: ");
+    Serial.println(status);
+    return;
+  }
 
   byte sampleIndex = EEPROM.read(SAMPLE_INDEX_OFFSET);
 
@@ -191,16 +203,20 @@ void loop()
   // read sample if just started or waited enough
   if (!lastSampleTime || millis() > lastSampleTime + SAMPLE_DELAY)
   {
-    if (EEPROM.read(SAMPLE_INDEX_OFFSET) == MAX_SAMPLE_INDEX_OFFSET)
+    // when sample index wrapped, we have 256 samples
+    if (EEPROM.read(SAMPLE_INDEX_OFFSET) == 0 && lastSampleTime != 0)
     {
       Serial.println("Memory full. Pause.");
       paused = true;
-    } else {
-      EEPROM.write(SAMPLE_INDEX_OFFSET, EEPROM.read(SAMPLE_INDEX_OFFSET) + 1);
+    }
+    else
+    {
       readSample();
       drawSamples();
+      EEPROM.write(SAMPLE_INDEX_OFFSET, EEPROM.read(SAMPLE_INDEX_OFFSET) + 1);
       lastSampleTime = millis();
     }
+    delay(1);
   }
 
   if (millis() % 1000 == 0)

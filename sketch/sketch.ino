@@ -4,7 +4,7 @@
 
 #define RECENT_SAMPLES 3              // number of samples for running average
 
-#define SAMPLE_INDEX_OFFSET 0         // index byte address in EEPROM
+#define SAMPLE_COUNT_OFFSET 0         // index byte address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 
 #define SAMPLE_DELAY 100              // 5 sec
@@ -75,11 +75,11 @@ void setup()
   }
   Serial.println("OK");
 
-  EEPROM.write(SAMPLE_INDEX_OFFSET, 0);
-  Serial.println("Loading sample index");
-  byte sampleIndex = EEPROM.read(SAMPLE_INDEX_OFFSET);
+  EEPROM.write(SAMPLE_COUNT_OFFSET, 0);
+  Serial.println("Loading sample count");
+  byte sampleCount = EEPROM.read(SAMPLE_COUNT_OFFSET);
   Serial.print("Loaded ");
-  Serial.println(sampleIndex);
+  Serial.println(sampleCount);
   Serial.println("OK");
 
   Serial.println("Loading recent samples");
@@ -87,13 +87,13 @@ void setup()
   recent.size = RECENT_SAMPLES;
 
   // load last RECENT_SAMPLES samples from EEPROM
-  for (byte n = 0; n < RECENT_SAMPLES && sampleIndex - n > 0; n++)
+  for (byte n = 0; n < RECENT_SAMPLES && sampleCount - n > 0; n++)
   {
-    addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + sampleIndex - n));
+    addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
     Serial.print("Loaded ");
-    Serial.print(EEPROM.read(SAMPLES_OFFSET + sampleIndex - n));
+    Serial.print(EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
     Serial.print(" at ");
-    Serial.println(sampleIndex - n);
+    Serial.println(sampleCount - n);
   };
   Serial.println("OK");
 
@@ -138,8 +138,18 @@ byte readButton()
   return 0;
 };
 
+byte readSerial()
+{
+  if (Serial.available()) {
+    byte data = Serial.read();
+    Serial.print('Reading');
+    Serial.print(data);
+  }
+  return 0;
+}
+
 // Reads a sample, calculates the average, and saves to EEPROM
-void readSample(byte sampleIndex)
+void readSample(byte sampleCount)
 {
   Serial.println("----------");
   Serial.println("Reading sample");
@@ -152,8 +162,8 @@ void readSample(byte sampleIndex)
     return;
   }
 
-  Serial.print("sampleIndex: ");
-  Serial.println(sampleIndex);
+  Serial.print("sampleCount: ");
+  Serial.println(sampleCount);
 
   Serial.print("sample: ");
   Serial.println(sample);
@@ -164,13 +174,13 @@ void readSample(byte sampleIndex)
   Serial.print("average: ");
   Serial.println(avg);
 
-  EEPROM.write(SAMPLES_OFFSET + sampleIndex, avg);
+  EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
 };
 
-void drawSamples(byte sampleIndex)
+void drawSamples(byte sampleCount)
 {
   Serial.print("|");
-  for (int i = 0; i <= sampleIndex; i++)
+  for (int i = 0; i <= sampleCount; i++)
   {
     Serial.print(EEPROM.read(SAMPLES_OFFSET + i));
     Serial.print(" ");
@@ -183,14 +193,15 @@ void loop()
   static unsigned long lastSampleTime = -SAMPLE_DELAY;
   static boolean paused = false;
 
-  switch (readButton())
+  // switch (readButton())
+  switch (readSerial())
   {
     case BUTTON_PUSH:
       paused = !paused;
       Serial.println(paused ? "Pausing" : "Resuming");
       break;
     case BUTTON_PUSH_AND_HOLD:
-      EEPROM.write(SAMPLE_INDEX_OFFSET, 0);
+      EEPROM.write(SAMPLE_COUNT_OFFSET, 0);
       for (byte i = 0; i < RECENT_SAMPLES; i++)
       {
         recent.array[i] = 0;
@@ -207,32 +218,30 @@ void loop()
       Serial.println((millis() / 1000) % 2 ? "||" : " ");
       delay(1);
     }
-    return;
   }
-
-  if (millis() > lastSampleTime + SAMPLE_DELAY)
+  else
   {
     // when sample index wrapped, means we have 256 samples
-    if (EEPROM.read(SAMPLE_INDEX_OFFSET) == 0 && lastSampleTime != 0)
+    byte sampleCount = EEPROM.read(SAMPLE_COUNT_OFFSET);
+    if (sampleCount == 0 && lastSampleTime != 0)
     {
       Serial.println("Memory full. Pause.");
       paused = true;
     }
     else
     {
-      readSample();
-      drawSamples();
-      EEPROM.write(SAMPLE_INDEX_OFFSET, EEPROM.read(SAMPLE_INDEX_OFFSET) + 1);
-
+      readSample(sampleCount);
+      drawSamples(sampleCount);
+      EEPROM.write(SAMPLE_COUNT_OFFSET, sampleCount + 1);
       lastSampleTime = millis();
+      delay(1);
     }
-    delay(1);
-  }
 
-  if (millis() % 1000 == 0)
-  {
-    Serial.print("Running ");
-    Serial.println((millis() / 1000) % 2 ? "*" : " ");
-    delay(1);
+    if (millis() % 1000 == 0)
+    {
+      Serial.print("Running ");
+      Serial.println((millis() / 1000) % 2 ? "*" : " ");
+      delay(1);
+    }
   }
 }

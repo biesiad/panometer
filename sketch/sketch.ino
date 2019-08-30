@@ -14,7 +14,6 @@
 #define BUTTON_PUSH 1
 #define BUTTON_PUSH_AND_HOLD 2
 
-
 Adafruit_VL6180X vl = Adafruit_VL6180X();
 
 struct Recent

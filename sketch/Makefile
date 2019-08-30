@@ -1,6 +1,6 @@
 TARGET = sketch
 TTY = $(shell ls /dev/tty.*  | grep -e usbserial)
-OBJ = $(TARGET).arduino.avr.nano.hex
+OBJ = $(TARGET).arduino.avr.nano.hex $(TARGET).arduino.avr.nano.elf
 
 all: $(OBJ) upload screen
 
@@ -17,4 +17,4 @@ debug:
 	arduino-cli compile --build-properties build.extra_flags=-DDEBUG --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
 clean:
-	rm $(TARGET).arduino.avr.nano.*
+	rm $(OBJ)

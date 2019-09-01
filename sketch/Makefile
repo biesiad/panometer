@@ -10,12 +10,16 @@ $(OBJ): $(TARGET).ino
 upload: $(TARGET).arduino.avr.nano.hex
 	arduino-cli upload -p $(TTY) --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
-screen: $(TARGET).arduino.avr.nano.hex upload
-	screen $(TTY) 115200
-
 debug:
 	arduino-cli compile --build-properties build.extra_flags=-DDEBUG --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
-.PHONY : clean
+.PHONY: clean tty
+
 clean:
 	rm $(OBJ)
+
+screen:
+	screen $(TTY) 115200
+
+tty:
+	ls /dev/tty.*  | grep -e usb

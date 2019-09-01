@@ -2,12 +2,13 @@
 #include <Wire.h>
 #include "Adafruit_VL6180X.h"
 
+#define BAUD 9600
 #define RECENT_SAMPLES 3              // number of samples for running average
 
 #define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 #define SAMPLE_COUNT_MAX 256
-#define SAMPLE_DELAY 5000             // 5 sec
+#define SAMPLE_DELAY 1000
 
 #define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
 #define BUTTON_PIN 3
@@ -49,8 +50,6 @@ uint8_t average(uint8_t *arr, uint8_t size)
 
 uint8_t readButton()
 {
-  // Serial.println(digitalRead(BUTTON_PIN), BIN);
-
   static boolean buttonActive = false;
   static boolean buttonHoldActive = false;
   static unsigned long buttonActiveTime = 0;
@@ -90,27 +89,27 @@ uint8_t readButton()
 // Reads a sample, calculates the average, and saves to EEPROM
 uint8_t readSample(uint8_t sampleCount)
 {
-  Serial.println("----------");
-  Serial.println("Reading sample");
+  Serial.print("Reading sample");
+
   uint8_t sample = vl.readRange();
   uint8_t status = vl.readRangeStatus();
 
   if (status != VL6180X_ERROR_NONE) {
-    Serial.print("VL6180x Error: ");
+    Serial.print(". VL6180x Error: ");
     Serial.println(status);
     return status;
   }
 
-  Serial.print("sampleCount: ");
-  Serial.println(sampleCount);
-
-  Serial.print("sample: ");
-  Serial.println(sample);
-
   addRecent(&recent, sample);
   uint8_t avg = average(recent.array, recent.size);
 
-  Serial.print("average: ");
+  Serial.print(" #");
+  Serial.print(sampleCount);
+  Serial.print("/");
+  Serial.print(SAMPLE_COUNT_MAX);
+  Serial.print(". Value: ");
+  Serial.print(sample);
+  Serial.print(". Average: ");
   Serial.println(avg);
 
   EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
@@ -130,7 +129,7 @@ void drawSamples(uint8_t sampleCount)
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(BAUD);
   Wire.begin();
   Serial.println("Starting");
 
@@ -186,11 +185,18 @@ void loop()
   static unsigned long lastSampleTime = -SAMPLE_DELAY;
   static boolean paused = false;
 
+  uint16_t sampleCount = 0;
+  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+
   switch (readButton())
   {
     case BUTTON_PUSH:
       paused = !paused;
       Serial.println(paused ? "Pausing" : "Resuming");
+      if (paused) {
+        drawSamples(sampleCount);
+      }
+      delay(100);
       break;
     case BUTTON_PUSH_AND_HOLD:
       EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
@@ -199,6 +205,7 @@ void loop()
         recent.array[i] = 0;
       }
       Serial.println("Resetting");
+      delay(100);
       break;
   }
 
@@ -214,8 +221,6 @@ void loop()
   else
   {
     if (millis() > lastSampleTime + SAMPLE_DELAY) {
-      uint16_t sampleCount = 0;
-      EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
       if (sampleCount == SAMPLE_COUNT_MAX)
       {
         Serial.println("Memory full. Pause.");
@@ -224,7 +229,6 @@ void loop()
       else
       {
         if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
-          drawSamples(sampleCount);
           EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
           lastSampleTime = millis();
         } else {
@@ -236,8 +240,8 @@ void loop()
 
     if (millis() % 1000 == 0)
     {
-      Serial.print("Running ");
-      Serial.println((millis() / 1000) % 2 ? "*" : " ");
+      // Serial.print("Running ");
+      // Serial.println((millis() / 1000) % 2 ? "*" : " ");
       delay(1);
     }
   }

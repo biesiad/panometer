@@ -1,6 +1,7 @@
 TARGET = sketch
 TTY = $(shell ls /dev/tty.*  | grep -e usbserial)
 OBJ = $(TARGET).arduino.avr.nano.hex $(TARGET).arduino.avr.nano.elf
+BAUD = 9600
 
 all: $(OBJ) upload screen
 
@@ -19,7 +20,7 @@ clean:
 	rm $(OBJ)
 
 screen:
-	screen $(TTY) 115200
+	screen $(TTY) $(BAUD)
 
 tty:
 	ls /dev/tty.*  | grep -e usb

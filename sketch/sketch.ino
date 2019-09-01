@@ -4,8 +4,9 @@
 
 #define RECENT_SAMPLES 3              // number of samples for running average
 
-#define SAMPLE_COUNT_OFFSET 0         // index byte address in EEPROM
+#define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
+#define SAMPLE_COUNT_MAX 256
 
 #define SAMPLE_DELAY 100              // 5 sec
 #define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
@@ -18,12 +19,12 @@ Adafruit_VL6180X vl = Adafruit_VL6180X();
 
 struct Recent
 {
-  byte array[RECENT_SAMPLES];
-  byte index;
-  byte size;
+  uint8_t array[RECENT_SAMPLES];
+  uint8_t index;
+  uint8_t size;
 } recent;
 
-void addRecent(struct Recent *recent, byte sample)
+void addRecent(struct Recent *recent, uint8_t sample)
 {
   recent->array[recent->index] = sample;
   recent->index++;
@@ -31,11 +32,11 @@ void addRecent(struct Recent *recent, byte sample)
     recent->index = 0;
 };
 
-byte average(byte *arr, byte size)
+uint8_t average(uint8_t *arr, uint8_t size)
 {
   short sum = 0;
-  byte count = 0;
-  for (byte i = 0; i < size; i++)
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < size; i++)
   {
     if (arr[i] != NULL)
     {
@@ -74,9 +75,10 @@ void setup()
   }
   Serial.println("OK");
 
-  EEPROM.write(SAMPLE_COUNT_OFFSET, 0);
+  EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
   Serial.println("Loading sample count");
-  byte sampleCount = EEPROM.read(SAMPLE_COUNT_OFFSET);
+  uint16_t sampleCount = 0;
+  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
   Serial.print("Loaded ");
   Serial.println(sampleCount);
   Serial.println("OK");
@@ -86,7 +88,7 @@ void setup()
   recent.size = RECENT_SAMPLES;
 
   // load last RECENT_SAMPLES samples from EEPROM
-  for (byte n = 0; n < RECENT_SAMPLES && sampleCount - n > 0; n++)
+  for (uint8_t n = 0; n < RECENT_SAMPLES && sampleCount - n > 0; n++)
   {
     addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
     Serial.print("Loaded ");
@@ -99,7 +101,7 @@ void setup()
   pinMode(BUTTON_PIN, INPUT);
 }
 
-byte readButton()
+uint8_t readButton()
 {
   static boolean buttonActive = false;
   static boolean buttonHoldActive = false;
@@ -137,10 +139,10 @@ byte readButton()
   return 0;
 };
 
-byte readSerial()
+uint8_t readSerial()
 {
   if (Serial.available()) {
-    byte data = Serial.read();
+    uint8_t data = Serial.read();
     Serial.print('Reading');
     Serial.print(data);
   }
@@ -148,7 +150,7 @@ byte readSerial()
 }
 
 // Reads a sample, calculates the average, and saves to EEPROM
-void readSample(byte sampleCount)
+void readSample(uint8_t sampleCount)
 {
   Serial.println("----------");
   Serial.println("Reading sample");
@@ -168,7 +170,7 @@ void readSample(byte sampleCount)
   Serial.println(sample);
 
   addRecent(&recent, sample);
-  byte avg = average(recent.array, recent.size);
+  uint8_t avg = average(recent.array, recent.size);
 
   Serial.print("average: ");
   Serial.println(avg);
@@ -176,7 +178,7 @@ void readSample(byte sampleCount)
   EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
 };
 
-void drawSamples(byte sampleCount)
+void drawSamples(uint8_t sampleCount)
 {
   Serial.print("|");
   for (int i = 0; i <= sampleCount; i++)
@@ -200,8 +202,8 @@ void loop()
       Serial.println(paused ? "Pausing" : "Resuming");
       break;
     case BUTTON_PUSH_AND_HOLD:
-      EEPROM.write(SAMPLE_COUNT_OFFSET, 0);
-      for (byte i = 0; i < RECENT_SAMPLES; i++)
+      EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
+      for (uint8_t i = 0; i < RECENT_SAMPLES; i++)
       {
         recent.array[i] = 0;
       }
@@ -220,9 +222,9 @@ void loop()
   }
   else
   {
-    // when sample index wrapped, means we have 256 samples
-    byte sampleCount = EEPROM.read(SAMPLE_COUNT_OFFSET);
-    if (sampleCount == 0 && lastSampleTime != 0)
+    uint16_t sampleCount = 0;
+    EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+    if (sampleCount == SAMPLE_COUNT_MAX)
     {
       Serial.println("Memory full. Pause.");
       paused = true;
@@ -231,7 +233,7 @@ void loop()
     {
       readSample(sampleCount);
       drawSamples(sampleCount);
-      EEPROM.write(SAMPLE_COUNT_OFFSET, sampleCount + 1);
+      EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
       lastSampleTime = millis();
       delay(1);
     }

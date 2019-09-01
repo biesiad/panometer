@@ -16,5 +16,6 @@ screen: $(TARGET).arduino.avr.nano.hex upload
 debug:
 	arduino-cli compile --build-properties build.extra_flags=-DDEBUG --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
+.PHONY : clean
 clean:
 	rm $(OBJ)

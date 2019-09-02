@@ -8,7 +8,7 @@
 #define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 #define SAMPLE_COUNT_MAX 256
-#define SAMPLE_DELAY 1000
+#define SAMPLE_DELAY (5*60*1000L)
 
 #define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
 #define BUTTON_PIN 3
@@ -103,21 +103,24 @@ uint8_t readSample(uint8_t sampleCount)
   addRecent(&recent, sample);
   uint8_t avg = average(recent.array, recent.size);
 
-  Serial.print(" #");
+  Serial.print(" ");
   Serial.print(sampleCount);
   Serial.print("/");
   Serial.print(SAMPLE_COUNT_MAX);
-  Serial.print(". Value: ");
+  Serial.print(" value: ");
   Serial.print(sample);
-  Serial.print(". Average: ");
+  Serial.print(" average: ");
   Serial.println(avg);
 
   EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
   return VL6180X_ERROR_NONE;
 };
 
-void drawSamples(uint8_t sampleCount)
+void drawSamples()
 {
+  uint16_t sampleCount = 0;
+  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+
   Serial.print("|");
   for (int i = 0; i <= sampleCount; i++)
   {
@@ -182,11 +185,8 @@ void setup()
 
 void loop()
 {
-  static unsigned long lastSampleTime = -SAMPLE_DELAY;
+  static unsigned long lastSampleTime = 0;
   static boolean paused = false;
-
-  uint16_t sampleCount = 0;
-  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
 
   switch (readButton())
   {
@@ -194,7 +194,7 @@ void loop()
       paused = !paused;
       Serial.println(paused ? "Pausing" : "Resuming");
       if (paused) {
-        drawSamples(sampleCount);
+        drawSamples();
       }
       delay(100);
       break;
@@ -204,6 +204,8 @@ void loop()
       {
         recent.array[i] = 0;
       }
+      lastSampleTime = 0;
+      paused = false;
       Serial.println("Resetting");
       delay(100);
       break;
@@ -215,12 +217,14 @@ void loop()
     {
       Serial.print("Paused ");
       Serial.println((millis() / 1000) % 2 ? "||" : " ");
-      delay(1);
     }
   }
   else
   {
-    if (millis() > lastSampleTime + SAMPLE_DELAY) {
+    if (lastSampleTime == 0 || (millis() > (lastSampleTime + SAMPLE_DELAY))) {
+      uint16_t sampleCount = 0;
+      EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+
       if (sampleCount == SAMPLE_COUNT_MAX)
       {
         Serial.println("Memory full. Pause.");
@@ -232,9 +236,9 @@ void loop()
           EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
           lastSampleTime = millis();
         } else {
+          // if error reading sample, wait 1s and try again
           delay(1000);
         }
-        delay(1);
       }
     }
 
@@ -242,7 +246,7 @@ void loop()
     {
       // Serial.print("Running ");
       // Serial.println((millis() / 1000) % 2 ? "*" : " ");
-      delay(1);
     }
   }
+  delay(1);
 }

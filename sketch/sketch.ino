@@ -7,8 +7,15 @@
 
 #define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
-#define SAMPLE_COUNT_MAX 256
-#define SAMPLE_DELAY (5*60*1000L)
+#define SAMPLE_COUNT_MAX 128
+#define SAMPLE_DELAY (10*60*1000L)
+#define MAX_SAMPLE 70
+
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 64
+
+#define GRAPH_WIDTH 128
+#define GRAPH_HEIGHT 50
 
 #define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
 #define BUTTON_PIN 3
@@ -121,11 +128,26 @@ void drawSamples()
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
 
+  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
+
   Serial.print("|");
   for (int i = 0; i <= sampleCount; i++)
   {
-    Serial.print(EEPROM.read(SAMPLES_OFFSET + i));
-    Serial.print(" ");
+    uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
+    uint8_t x = i * barWidth;
+    uint8_t y = (DISPLAY_HEIGHT - GRAPH_HEIGHT) + ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE);
+    uint8_t height = DISPLAY_HEIGHT - y;
+    // drawRect(x, y, barWidth, height);
+
+    Serial.print("bar ");
+    Serial.print("x: ");
+    Serial.print(x);
+    Serial.print("y: ");
+    Serial.print(x);
+    Serial.print("width: ");
+    Serial.print(barWidth);
+    Serial.print("height: ");
+    Serial.println(height);
   }
   Serial.println("|");
 }

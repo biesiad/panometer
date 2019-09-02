@@ -194,6 +194,10 @@ void loop()
       paused = !paused;
       Serial.println(paused ? "Pausing" : "Resuming");
       if (paused) {
+        uint16_t sampleCount = 0;
+        EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+        Serial.print("Sample count: ");
+        Serial.println(sampleCount);
         drawSamples();
       }
       delay(100);

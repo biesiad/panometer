@@ -134,26 +134,26 @@ void drawSamples()
 
   uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
-  Serial.print("|");
+  // Serial.print("|");
   for (int i = 0; i <= sampleCount; i++)
   {
     uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
     uint8_t x = i * barWidth;
     uint8_t y = (DISPLAY_HEIGHT - GRAPH_HEIGHT) + ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE);
     uint8_t height = DISPLAY_HEIGHT - y;
-    // drawRect(x, y, barWidth, height);
+    drawRect(x, y, barWidth, height);
 
-    Serial.print("bar ");
-    Serial.print("x: ");
-    Serial.print(x);
-    Serial.print("y: ");
-    Serial.print(x);
-    Serial.print("width: ");
-    Serial.print(barWidth);
-    Serial.print("height: ");
-    Serial.println(height);
+    // Serial.print("bar ");
+    // Serial.print("x: ");
+    // Serial.print(x);
+    // Serial.print("y: ");
+    // Serial.print(x);
+    // Serial.print("width: ");
+    // Serial.print(barWidth);
+    // Serial.print("height: ");
+    // Serial.println(height);
   }
-  Serial.println("|");
+  // Serial.println("|");
 }
 
 void setup()
@@ -185,14 +185,13 @@ void setup()
   Serial.println("OK");
 
   Serial.println("Initializing SSD1306");
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("Failed to find SSD1306");
     while(1);
   }
-  Serial.println("OK");
 
   display.clearDisplay();
-  display.drawPixel(10, 10, WHITE);
   display.display();
 
   Serial.println("Loading sample count");
@@ -256,8 +255,12 @@ void loop()
   {
     if (millis() % 1000 == 0)
     {
-      Serial.print("Paused ");
-      Serial.println((millis() / 1000) % 2 ? "||" : " ");
+      display.fillCircle(DISPLAY_WIDTH - 5, 2, 2, BLACK);
+      display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
+      display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
+      display.display();
+      // Serial.print("Paused ");
+      // Serial.println((millis() / 1000) % 2 ? "||" : " ");
     }
   }
   else
@@ -285,6 +288,10 @@ void loop()
 
     if (millis() % 1000 == 0)
     {
+      display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, BLACK);
+      display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, BLACK);
+      display.fillCircle(DISPLAY_WIDTH - 5, 2, 2, (millis() / 1000) % 2 ? WHITE : BLACK);
+      display.display();
       // Serial.print("Running ");
       // Serial.println((millis() / 1000) % 2 ? "*" : " ");
     }

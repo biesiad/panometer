@@ -6,13 +6,16 @@ BAUD = 9600
 $(OBJ): $(TARGET).ino
 	arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
+.PHONY: clean tty
+
 upload: $(TARGET).arduino.avr.nano.hex
+	arduino-cli upload -p $(TTY) --fqbn arduino:avr:nano:cpu=atmega328 ../sketch
+
+upload_old: $(TARGET).arduino.avr.nano.hex
 	arduino-cli upload -p $(TTY) --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
 debug:
 	arduino-cli compile --build-properties build.extra_flags=-DDEBUG --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
-
-.PHONY: clean tty
 
 clean:
 	rm $(OBJ)

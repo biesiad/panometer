@@ -1,6 +1,9 @@
 #include <EEPROM.h>
+#include <SPI.h>
 #include <Wire.h>
 #include "Adafruit_VL6180X.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define BAUD 9600
 #define RECENT_SAMPLES 3              // number of samples for running average
@@ -24,6 +27,7 @@
 #define BUTTON_PUSH_AND_HOLD 2
 
 Adafruit_VL6180X vl = Adafruit_VL6180X();
+Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
 struct Recent
 {
@@ -179,6 +183,17 @@ void setup()
     while (1);
   }
   Serial.println("OK");
+
+  Serial.println("Initializing SSD1306");
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("Failed to find SSD1306");
+    while(1);
+  }
+  Serial.println("OK");
+
+  display.clearDisplay();
+  display.drawPixel(10, 10, WHITE);
+  display.display();
 
   Serial.println("Loading sample count");
   uint16_t sampleCount = 0;

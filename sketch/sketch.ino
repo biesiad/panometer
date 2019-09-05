@@ -11,7 +11,7 @@
 #define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 #define SAMPLE_COUNT_MAX 128
-#define SAMPLE_DELAY (10*60*1000L)
+#define SAMPLE_DELAY (10*60*1000L)    // sample every 10 minutes
 #define MAX_SAMPLE 70
 
 #define DISPLAY_WIDTH 128
@@ -140,8 +140,8 @@ void drawSamples()
   {
     uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
     uint8_t x = i * barWidth;
-    uint8_t y = (DISPLAY_HEIGHT - GRAPH_HEIGHT) + ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE);
-    uint8_t height = DISPLAY_HEIGHT - y;
+    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE));
+    uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, barWidth, height, WHITE);
   }
 
@@ -149,9 +149,9 @@ void drawSamples()
   display.setCursor(0, 0);
   display.setTextColor(WHITE);
   display.setTextSize(1);
-  display.print((sampleCount * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
+  display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
   display.print("h");
-  display.print(((sampleCount * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
+  display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
   display.print("m");
 
   display.display();
@@ -225,13 +225,16 @@ void loop()
 {
   static unsigned long lastSampleTime = 0;
   static boolean paused = false;
+  static uint16_t blinkInterval = 0;
+  static boolean blink = false;
 
   switch (readButton())
   {
     case BUTTON_PUSH:
       paused = !paused;
+      blinkInterval = 0;
+      blink = true;
       Serial.println(paused ? "Pausing" : "Resuming");
-      delay(100);
       break;
     case BUTTON_PUSH_AND_HOLD:
       EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
@@ -241,22 +244,35 @@ void loop()
       }
       lastSampleTime = 0;
       paused = false;
+      blinkInterval = 0;
+      blink = true;
       Serial.println("Resetting");
-      delay(100);
+      display.fillRect(60, 0, 68, 14, BLACK);
+      display.setCursor(60, 0);
+      display.setTextColor(WHITE);
+      display.setTextSize(1);
+      display.print("Resetting..");
+      display.display();
+      delay(1000);
+      display.clearDisplay();
       break;
   }
 
   if (paused)
   {
-    if (millis() % 1000 == 0)
+    if (blinkInterval == 0 || blinkInterval > 500)
     {
       display.fillRect(DISPLAY_WIDTH - 10, 0, 10, 14, BLACK);
-      display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
-      display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
+      uint8_t color = blink ? WHITE : BLACK;
+      display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, color);
+      display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, color);
       display.display();
+      blinkInterval = 0;
+      blink = !blink;
       // Serial.print("Paused ");
       // Serial.println((millis() / 1000) % 2 ? "||" : " ");
     }
+    blinkInterval++;
   }
   else
   {
@@ -285,14 +301,18 @@ void loop()
       }
     }
 
-    if (millis() % 1000 == 0)
+    if (blinkInterval == 0 || blinkInterval > 1000)
     {
       display.fillRect(DISPLAY_WIDTH - 10, 0, 10, 14, BLACK);
-      display.fillCircle(DISPLAY_WIDTH - 3, 2, 2, (millis() / 1000) % 2 ? WHITE : BLACK);
+      uint8_t color = blink ? WHITE : BLACK;
+      display.fillCircle(DISPLAY_WIDTH - 3, 2, 2, color);
       display.display();
+      blinkInterval = 0;
+      blink = !blink;
       // Serial.print("Running ");
       // Serial.println((millis() / 1000) % 2 ? "*" : " ");
     }
+    blinkInterval++;
   }
   delay(1);
 }

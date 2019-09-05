@@ -134,26 +134,27 @@ void drawSamples()
 
   uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
-  // Serial.print("|");
-  for (int i = 0; i <= sampleCount; i++)
+  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
+
+  for (int i = 0; i < sampleCount; i++)
   {
     uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
     uint8_t x = i * barWidth;
     uint8_t y = (DISPLAY_HEIGHT - GRAPH_HEIGHT) + ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE);
     uint8_t height = DISPLAY_HEIGHT - y;
-    drawRect(x, y, barWidth, height);
-
-    // Serial.print("bar ");
-    // Serial.print("x: ");
-    // Serial.print(x);
-    // Serial.print("y: ");
-    // Serial.print(x);
-    // Serial.print("width: ");
-    // Serial.print(barWidth);
-    // Serial.print("height: ");
-    // Serial.println(height);
+    display.fillRect(x, y, barWidth, height, WHITE);
   }
-  // Serial.println("|");
+
+  display.fillRect(0, 0, 60, 14, BLACK);
+  display.setCursor(0, 0);
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.print((sampleCount * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
+  display.print("h");
+  display.print(((sampleCount * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
+  display.print("m");
+
+  display.display();
 }
 
 void setup()
@@ -192,7 +193,6 @@ void setup()
   }
 
   display.clearDisplay();
-  display.display();
 
   Serial.println("Loading sample count");
   uint16_t sampleCount = 0;
@@ -217,6 +217,8 @@ void setup()
   Serial.println("OK");
 
   pinMode(BUTTON_PIN, INPUT);
+
+  drawSamples();
 }
 
 void loop()
@@ -229,13 +231,6 @@ void loop()
     case BUTTON_PUSH:
       paused = !paused;
       Serial.println(paused ? "Pausing" : "Resuming");
-      if (paused) {
-        uint16_t sampleCount = 0;
-        EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
-        Serial.print("Sample count: ");
-        Serial.println(sampleCount);
-        drawSamples();
-      }
       delay(100);
       break;
     case BUTTON_PUSH_AND_HOLD:
@@ -255,7 +250,7 @@ void loop()
   {
     if (millis() % 1000 == 0)
     {
-      display.fillCircle(DISPLAY_WIDTH - 5, 2, 2, BLACK);
+      display.fillRect(DISPLAY_WIDTH - 10, 0, 10, 14, BLACK);
       display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
       display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, (millis() / 1000) % 2 ? WHITE : BLACK);
       display.display();
@@ -265,32 +260,35 @@ void loop()
   }
   else
   {
-    if (lastSampleTime == 0 || (millis() > (lastSampleTime + SAMPLE_DELAY))) {
-      uint16_t sampleCount = 0;
-      EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+    uint16_t sampleCount = 0;
+    EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
 
-      if (sampleCount == SAMPLE_COUNT_MAX)
-      {
-        Serial.println("Memory full. Pause.");
-        paused = true;
-      }
-      else
-      {
-        if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
-          EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
-          lastSampleTime = millis();
-        } else {
-          // if error reading sample, wait 1s and try again
-          delay(1000);
-        }
+    if (sampleCount == SAMPLE_COUNT_MAX)
+    {
+        display.fillRect(60, 0, 68, 14, BLACK);
+        display.setCursor(60, 0);
+        display.setTextColor(WHITE);
+        display.setTextSize(1);
+        display.print("Memory full");
+        display.display();
+        return;
+    }
+
+    if (lastSampleTime == 0 || (millis() > (lastSampleTime + SAMPLE_DELAY))) {
+      if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
+        EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
+        lastSampleTime = millis();
+        drawSamples();
+      } else {
+        // if error reading sample, wait 1s and try again
+        delay(1000);
       }
     }
 
     if (millis() % 1000 == 0)
     {
-      display.fillRect(DISPLAY_WIDTH - 6, 1, 2, 4, BLACK);
-      display.fillRect(DISPLAY_WIDTH - 2, 1, 2, 4, BLACK);
-      display.fillCircle(DISPLAY_WIDTH - 5, 2, 2, (millis() / 1000) % 2 ? WHITE : BLACK);
+      display.fillRect(DISPLAY_WIDTH - 10, 0, 10, 14, BLACK);
+      display.fillCircle(DISPLAY_WIDTH - 3, 2, 2, (millis() / 1000) % 2 ? WHITE : BLACK);
       display.display();
       // Serial.print("Running ");
       // Serial.println((millis() / 1000) % 2 ? "*" : " ");

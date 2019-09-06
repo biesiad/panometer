@@ -258,6 +258,20 @@ void loop()
       break;
   }
 
+  uint16_t sampleCount;
+  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+
+  if (sampleCount == SAMPLE_COUNT_MAX)
+  {
+      display.fillRect(60, 0, 68, 14, BLACK);
+      display.setCursor(60, 0);
+      display.setTextColor(WHITE);
+      display.setTextSize(1);
+      display.print("Memory full");
+      display.display();
+      return;
+  }
+
   if (paused)
   {
     if (blinkInterval == 0 || blinkInterval > 500)
@@ -276,20 +290,6 @@ void loop()
   }
   else
   {
-    uint16_t sampleCount = 0;
-    EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
-
-    if (sampleCount == SAMPLE_COUNT_MAX)
-    {
-        display.fillRect(60, 0, 68, 14, BLACK);
-        display.setCursor(60, 0);
-        display.setTextColor(WHITE);
-        display.setTextSize(1);
-        display.print("Memory full");
-        display.display();
-        return;
-    }
-
     if (lastSampleTime == 0 || (millis() > (lastSampleTime + SAMPLE_DELAY))) {
       if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
         EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);

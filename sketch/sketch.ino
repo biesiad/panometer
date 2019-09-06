@@ -248,15 +248,37 @@ void setup()
   pinMode(BUTTON_PIN, INPUT);
 
   display.drawBitmap(32, 12, splashscreen, 64, 26, WHITE);
-
   display.setTextColor(WHITE);
   display.setTextSize(1);
   display.setCursor(38, 48);
   display.print("PANOMETER");
   display.display();
-  delay(5000);
-  display.clearDisplay();
 
+  unsigned long buttonPressedStartMillis = millis();
+  boolean buttonPressed = true;
+  while (buttonPressed)
+  {
+    // if pressed for > 5s, calibrate
+    if (millis() - buttonPressedStartMillis > 5000)
+    {
+      display.fillRect(60, 0, 68, 14, BLACK);
+      display.setCursor(65, 0);
+      display.setTextColor(WHITE);
+      display.setTextSize(1);
+      display.print("Calibrated");
+      display.display();
+      delay(1000);
+      break;
+    }
+    buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
+
+    // if released, wait to complete 5s splashscreen
+    if (!buttonPressed) {
+      delay(5000 - (millis() - buttonPressedStartMillis));
+    }
+  }
+
+  display.clearDisplay();
   drawSamples();
 }
 

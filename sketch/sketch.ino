@@ -29,6 +29,9 @@
 Adafruit_VL6180X vl = Adafruit_VL6180X();
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
+// Generated from an image with:
+//   convert splashscreen.bmp -monochrome -compress none -depth 1 splashscreen.pbm
+
 static const unsigned char PROGMEM splashscreen[] = {
   B00000000, B00000000, B00000000, B00000000, B11111111, B10000111, B11100000, B00000000,
   B00000000, B00000000, B00000000, B11110000, B01111111, B11000111, B11111110, B00000000,
@@ -129,13 +132,13 @@ uint8_t readButton()
 // Reads a sample, calculates the average, and saves to EEPROM
 uint8_t readSample(uint8_t sampleCount)
 {
-  Serial.print("Reading sample");
+  Serial.print(F("Reading sample"));
 
   uint8_t sample = vl.readRange();
   uint8_t status = vl.readRangeStatus();
 
   if (status != VL6180X_ERROR_NONE) {
-    Serial.print(". VL6180x Error: ");
+    Serial.print(F(". VL6180x Error: "));
     Serial.println(status);
     return status;
   }
@@ -143,13 +146,13 @@ uint8_t readSample(uint8_t sampleCount)
   addRecent(&recent, sample);
   uint8_t avg = average(recent.array, recent.size);
 
-  Serial.print(" ");
+  Serial.print(F(" "));
   Serial.print(sampleCount);
-  Serial.print("/");
+  Serial.print(F("/"));
   Serial.print(SAMPLE_COUNT_MAX);
-  Serial.print(" value: ");
+  Serial.print(F(" value: "));
   Serial.print(sample);
-  Serial.print(" average: ");
+  Serial.print(F(" average: "));
   Serial.println(avg);
 
   EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
@@ -179,9 +182,9 @@ void drawSamples()
   display.setTextColor(WHITE);
   display.setTextSize(1);
   display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
-  display.print("h");
+  display.print(F("h"));
   display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
-  display.print("m");
+  display.print(F("m"));
 
   display.display();
 }
@@ -190,47 +193,47 @@ void setup()
 {
   Serial.begin(BAUD);
   Wire.begin();
-  Serial.println("Starting");
+  Serial.println(F("Starting"));
 
-  Serial.println("Scanning I2C");
+  Serial.println(F("Scanning I2C"));
   for (int i = 1; i < 120; i++)
   {
     Wire.beginTransmission(i);
     if (Wire.endTransmission() == 0) {
-      Serial.print("Found: ");
+      Serial.print(F("Found: "));
       Serial.print(i, HEX);
     } else {
-      Serial.print(".");
+      Serial.print(F("."));
     }
   }
-  Serial.println(".");
-  Serial.println("OK");
+  Serial.println(F("."));
+  Serial.println(F("OK"));
 
-  Serial.println("Initializing VL6180x");
+  Serial.println(F("Initializing VL6180x"));
   if (!vl.begin())
   {
-    Serial.println("Failed to find VL6180x");
+    Serial.println(F("Failed to find VL6180x"));
     while (1);
   }
-  Serial.println("OK");
+  Serial.println(F("OK"));
 
-  Serial.println("Initializing SSD1306");
+  Serial.println(F("Initializing SSD1306"));
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("Failed to find SSD1306");
+    Serial.println(F("Failed to find SSD1306"));
     while(1);
   }
 
   display.clearDisplay();
 
-  Serial.println("Loading sample count");
+  Serial.println(F("Loading sample count"));
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
-  Serial.print("Loaded ");
+  Serial.print(F("Loaded "));
   Serial.println(sampleCount);
-  Serial.println("OK");
+  Serial.println(F("OK"));
 
-  Serial.println("Loading recent samples");
+  Serial.println(F("Loading recent samples"));
   recent.index = 0;
   recent.size = RECENT_SAMPLES;
 
@@ -238,12 +241,12 @@ void setup()
   for (uint8_t n = 0; n < RECENT_SAMPLES && sampleCount - n > 0; n++)
   {
     addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
-    Serial.print("Loaded ");
+    Serial.print(F("Loaded "));
     Serial.print(EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
-    Serial.print(" at ");
+    Serial.print(F(" at "));
     Serial.println(sampleCount - n);
   };
-  Serial.println("OK");
+  Serial.println(F("OK"));
 
   pinMode(BUTTON_PIN, INPUT);
 
@@ -254,7 +257,7 @@ void setup()
   display.setTextColor(WHITE);
   display.setTextSize(1);
   display.setCursor(38, 48);
-  display.print("PANOMETER");
+  display.print(F("PANOMETER"));
   display.display();
 
   unsigned long buttonPressedStartMillis = millis();
@@ -300,7 +303,7 @@ void loop()
       paused = !paused;
       blinkInterval = 0;
       blink = true;
-      Serial.println(paused ? "Pausing" : "Resuming");
+      Serial.println(paused ? F("Pausing") : F("Resuming"));
       break;
     case BUTTON_PUSH_AND_HOLD:
       EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
@@ -312,12 +315,12 @@ void loop()
       paused = false;
       blinkInterval = 0;
       blink = true;
-      Serial.println("Resetting");
+      Serial.println(F("Resetting"));
       display.fillRect(60, 0, 68, 14, BLACK);
       display.setCursor(60, 0);
       display.setTextColor(WHITE);
       display.setTextSize(1);
-      display.print("Resetting..");
+      display.print(F("Resetting.."));
       display.display();
       delay(1000);
       display.clearDisplay();
@@ -333,7 +336,7 @@ void loop()
       display.setCursor(60, 0);
       display.setTextColor(WHITE);
       display.setTextSize(1);
-      display.print("Memory full");
+      display.print(F("Memory full"));
       display.display();
       return;
   }
@@ -349,8 +352,8 @@ void loop()
       display.display();
       blinkInterval = 0;
       blink = !blink;
-      // Serial.print("Paused ");
-      // Serial.println((millis() / 1000) % 2 ? "||" : " ");
+      // Serial.print(F("Paused "));
+      // Serial.println((millis() / 1000) % 2 ? "||" : " "));
     }
     blinkInterval++;
   }
@@ -375,8 +378,8 @@ void loop()
       display.display();
       blinkInterval = 0;
       blink = !blink;
-      // Serial.print("Running ");
-      // Serial.println((millis() / 1000) % 2 ? "*" : " ");
+      // Serial.print(F("Running "));
+      // Serial.println((millis() / 1000) % 2 ? "*" : " "));
     }
     blinkInterval++;
   }

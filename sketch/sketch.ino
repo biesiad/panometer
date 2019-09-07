@@ -6,7 +6,7 @@
 #include <Adafruit_SSD1306.h>
 
 #define BAUD 9600
-#define RECENT_SAMPLES 3              // number of samples for running average
+#define RECENT_SAMPLES 5              // number of samples for running average
 
 #define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
@@ -247,6 +247,9 @@ void setup()
 
   pinMode(BUTTON_PIN, INPUT);
 
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+
   display.drawBitmap(32, 12, splashscreen, 64, 26, WHITE);
   display.setTextColor(WHITE);
   display.setTextSize(1);
@@ -255,30 +258,32 @@ void setup()
   display.display();
 
   unsigned long buttonPressedStartMillis = millis();
-  boolean buttonPressed = true;
+  boolean buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
+
+  if (buttonPressed)
+  {
+    display.setCursor(120, 0);
+    display.print("C");
+    display.display();
+  }
+
   while (buttonPressed)
   {
     // if pressed for > 5s, calibrate
-    if (millis() - buttonPressedStartMillis > 5000)
+    if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
-      display.fillRect(60, 0, 68, 14, BLACK);
-      display.setCursor(65, 0);
-      display.setTextColor(WHITE);
-      display.setTextSize(1);
-      display.print("Calibrated");
+      display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
+      display.setCursor(115, 0);
+      display.print("OK");
       display.display();
-      delay(1000);
       break;
     }
     buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
-
-    // if released, wait to complete 5s splashscreen
-    if (!buttonPressed) {
-      delay(5000 - (millis() - buttonPressedStartMillis));
-    }
   }
 
+  delay(3000);
   display.clearDisplay();
+
   drawSamples();
 }
 

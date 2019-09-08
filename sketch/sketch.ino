@@ -8,15 +8,13 @@
 #define BAUD 9600
 #define RECENT_SAMPLES 5              // number of samples for running average
 
-#define SAMPLE_COUNT_OFFSET 0         // index uint8_t address in EEPROM
+#define SAMPLES_COUNT_OFFSET 0        // samples count (16 bit) address in EEPROM
+#define SAMPLE_MAX_OFFSET 2           // container depth (8 bit) address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
-#define SAMPLE_COUNT_MAX 128
 #define SAMPLE_DELAY (10*60*1000L)    // sample every 10 minutes
-#define MAX_SAMPLE 70
 
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 64
-
 #define GRAPH_WIDTH 128
 #define GRAPH_HEIGHT 50
 
@@ -31,7 +29,6 @@ Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
 // Generated from an image with:
 //   convert splashscreen.bmp -monochrome -compress none -depth 1 splashscreen.pbm
-
 static const unsigned char PROGMEM splashscreen[] = {
   B00000000, B00000000, B00000000, B00000000, B11111111, B10000111, B11100000, B00000000,
   B00000000, B00000000, B00000000, B11110000, B01111111, B11000111, B11111110, B00000000,
@@ -149,7 +146,7 @@ uint8_t readSample(uint8_t sampleCount)
   Serial.print(F(" "));
   Serial.print(sampleCount);
   Serial.print(F("/"));
-  Serial.print(SAMPLE_COUNT_MAX);
+  Serial.print(GRAPH_WIDTH);
   Serial.print(F(" value: "));
   Serial.print(sample);
   Serial.print(F(" average: "));
@@ -162,7 +159,7 @@ uint8_t readSample(uint8_t sampleCount)
 void drawSamples()
 {
   uint16_t sampleCount = 0;
-  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+  EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
   uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
@@ -172,21 +169,41 @@ void drawSamples()
   {
     uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
     uint8_t x = i * barWidth;
-    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (MAX_SAMPLE - sample)) / MAX_SAMPLE));
+    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, barWidth, height, WHITE);
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);
   display.setCursor(0, 0);
-  display.setTextColor(WHITE);
-  display.setTextSize(1);
   display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
   display.print(F("h"));
   display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
   display.print(F("m"));
 
   display.display();
+}
+
+void calibrate() {
+  // load 5 samples and count the average
+  uint8_t count = 5;
+  short sum = 0;
+  for (uint8_t n = 0; n < count; n++)
+  {
+    uint8_t sample = vl.readRange();
+    uint8_t status = vl.readRangeStatus();
+
+    if (status != VL6180X_ERROR_NONE)
+    {
+      sum = sum + sample;
+    } else {
+      // if error reading sample, wait 1s and try again
+      delay(1000);
+    }
+  };
+
+  // 255 means it hasn't been callibrated, so save 254 or smaller value
+  EEPROM.write(SAMPLE_MAX_OFFSET, min(sum / count, 254));
 }
 
 void setup()
@@ -228,7 +245,7 @@ void setup()
 
   Serial.println(F("Loading sample count"));
   uint16_t sampleCount = 0;
-  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+  EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
   Serial.print(F("Loaded "));
   Serial.println(sampleCount);
   Serial.println(F("OK"));
@@ -254,12 +271,11 @@ void setup()
   display.setTextSize(1);
 
   display.drawBitmap(32, 12, splashscreen, 64, 26, WHITE);
-  display.setTextColor(WHITE);
-  display.setTextSize(1);
   display.setCursor(38, 48);
   display.print(F("PANOMETER"));
   display.display();
 
+  // Calibration
   unsigned long buttonPressedStartMillis = millis();
   boolean buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
 
@@ -275,6 +291,7 @@ void setup()
     // if pressed for > 5s, calibrate
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
+      calibrate();
       display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
       display.setCursor(115, 0);
       display.print("OK");
@@ -282,6 +299,11 @@ void setup()
       break;
     }
     buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
+  }
+
+  if (EEPROM.read(SAMPLE_MAX_OFFSET) == 255)
+  {
+    calibrate();
   }
 
   delay(3000);
@@ -306,7 +328,7 @@ void loop()
       Serial.println(paused ? F("Pausing") : F("Resuming"));
       break;
     case BUTTON_PUSH_AND_HOLD:
-      EEPROM.put(SAMPLE_COUNT_OFFSET, 0);
+      EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
       for (uint8_t i = 0; i < RECENT_SAMPLES; i++)
       {
         recent.array[i] = 0;
@@ -318,8 +340,6 @@ void loop()
       Serial.println(F("Resetting"));
       display.fillRect(60, 0, 68, 14, BLACK);
       display.setCursor(60, 0);
-      display.setTextColor(WHITE);
-      display.setTextSize(1);
       display.print(F("Resetting.."));
       display.display();
       delay(1000);
@@ -328,14 +348,12 @@ void loop()
   }
 
   uint16_t sampleCount;
-  EEPROM.get(SAMPLE_COUNT_OFFSET, sampleCount);
+  EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
-  if (sampleCount == SAMPLE_COUNT_MAX)
+  if (sampleCount == GRAPH_WIDTH)
   {
       display.fillRect(60, 0, 68, 14, BLACK);
       display.setCursor(60, 0);
-      display.setTextColor(WHITE);
-      display.setTextSize(1);
       display.print(F("Memory full"));
       display.display();
       return;
@@ -361,7 +379,7 @@ void loop()
   {
     if (lastSampleTime == 0 || (millis() > (lastSampleTime + SAMPLE_DELAY))) {
       if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
-        EEPROM.put(SAMPLE_COUNT_OFFSET, sampleCount + 1);
+        EEPROM.put(SAMPLES_COUNT_OFFSET, sampleCount + 1);
         lastSampleTime = millis();
         drawSamples();
       } else {

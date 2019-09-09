@@ -293,8 +293,6 @@ void setup()
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
       calibrate();
-      display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
-      display.setCursor(115, 0);
       display.display();
       break;
     }
@@ -306,6 +304,8 @@ void setup()
     calibrate();
   }
 
+  display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
+  display.setCursor(115, 0);
   display.print(EEPROM.read(SAMPLE_MAX_OFFSET));
 
   delay(3000);

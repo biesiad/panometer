@@ -294,7 +294,6 @@ void setup()
       calibrate();
       display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
       display.setCursor(115, 0);
-      display.print("OK");
       display.display();
       break;
     }
@@ -305,6 +304,8 @@ void setup()
   {
     calibrate();
   }
+
+  display.print(EEPROM.read(SAMPLE_MAX_OFFSET));
 
   delay(3000);
   display.clearDisplay();

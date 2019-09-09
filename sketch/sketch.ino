@@ -193,16 +193,17 @@ void calibrate() {
     uint8_t sample = vl.readRange();
     uint8_t status = vl.readRangeStatus();
 
-    if (status != VL6180X_ERROR_NONE)
+    if (status == VL6180X_ERROR_NONE)
     {
-      sum = sum + sample;
+      sum += sample;
     } else {
-      // if error reading sample, wait 1s and try again
-      delay(1000);
+      Serial.print(F("Can't calibrate VL6180X. Error: "));
+      Serial.println(status);
+      while(1);
     }
   };
 
-  // 255 means it hasn't been callibrated, so save 254 or smaller value
+  // 255 means it hasn't been callibrated, so max 254
   EEPROM.write(SAMPLE_MAX_OFFSET, min(sum / count, 254));
 }
 
@@ -288,7 +289,7 @@ void setup()
 
   while (buttonPressed)
   {
-    // if pressed for > 5s, calibrate
+    // if pressed for > BUTTON_HOLD_DELAY, calibrate
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
       calibrate();

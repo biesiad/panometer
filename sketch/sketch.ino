@@ -126,19 +126,27 @@ uint8_t readButton()
   return 0;
 };
 
-// Reads a sample, calculates the average, and saves to EEPROM
+// Reads a sample (mean of 5 readings), calculates running average, and saves to EEPROM
 uint8_t readSample(uint8_t sampleCount)
 {
-  Serial.print(F("Reading sample"));
+  Serial.print(F("Reading samples"));
 
-  uint8_t sample = vl.readRange();
-  uint8_t status = vl.readRangeStatus();
+  uint8_t readingSum = 0;
+  const uint8_t readingCount = 5;
 
-  if (status != VL6180X_ERROR_NONE) {
-    Serial.print(F(". VL6180x Error: "));
-    Serial.println(status);
-    return status;
+  for (int i = 0; i < readingCount; i ++) {
+    uint8_t sample = vl.readRange();
+    uint8_t status = vl.readRangeStatus();
+
+    if (status != VL6180X_ERROR_NONE) {
+      Serial.print(F(". VL6180x Error: "));
+      Serial.println(status);
+      return status;
+    }
+    readingSum += sample;
   }
+
+  uint8_t sample = readingSum / readingCount;
 
   addRecent(&recent, sample);
   uint8_t avg = average(recent.array, recent.size);

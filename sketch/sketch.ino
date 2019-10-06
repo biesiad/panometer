@@ -26,7 +26,7 @@
 Adafruit_VL6180X vl = Adafruit_VL6180X();
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
-// Generated from an image with:
+// Generated from an image file with ImageMagick:
 //   convert splashscreen.bmp -monochrome -compress none -depth 1 splashscreen.pbm
 static const unsigned char PROGMEM splashscreen[] = {
   B00000000, B00000000, B00000000, B00000000, B11111111, B10000111, B11100000, B00000000,
@@ -165,11 +165,12 @@ void drawSamples()
 
 void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *output)
 {
+  // https://entropymine.com/imageworsener/resample/
+  // https://www.ldv.ei.tum.de/fileadmin/w00bfa/www/content_uploads/Vorlesung_3.4_Resampling.pdf
+
   int i = 0;
   double ratio = (double)inputc / outputc;
   double x = (ratio / 2);
-
-  // printf("%f\n", ratio);
 
   while (x < inputc) {
     double average = 0;
@@ -191,7 +192,6 @@ void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *
       wl = 0;
       wh = 1;
     }
-
     if (xoh > inputc) {
       wl = 1;
       wh = 0;
@@ -201,7 +201,6 @@ void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *
     average += input[(int)floor(xol)] * wl;
     average += input[(int)floor(xoh)] * wh;
 
-    // printf("x: %.2f xol: %.2f xoh: %.2f dl: %.2f dh: %.2f wl: %.2f wh: %.2f average: %.2f\n", x, xol, xoh, dl, dh, wl, wh, average);
     output[i] = round(average);
 
     x += ratio;

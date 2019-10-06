@@ -99,23 +99,32 @@ uint8_t readSample(uint8_t sampleCount)
 {
   Serial.print(F("Reading samples"));
 
-  uint8_t range = vl.readRange();
-  uint8_t status = vl.readRangeStatus();
+  const uint8_t count = 5;
+  uint16_t sum = 0;
 
-  if (status != VL6180X_ERROR_NONE) {
-    Serial.print(F(". VL6180x Error: "));
-    Serial.println(status);
-    return status;
+  for (uint8_t i = 0; i < count; i++) {
+    uint8_t range = vl.readRange();
+    uint8_t status = vl.readRangeStatus();
+
+    if (status != VL6180X_ERROR_NONE) {
+      Serial.print(F(". VL6180x Error: "));
+      Serial.println(status);
+      return status;
+    }
+
+    sum += range;
   }
+
+  uint8_t sample = round(sum / count);
 
   Serial.print(F(" "));
   Serial.print(sampleCount);
   Serial.print(F("/"));
   Serial.print(GRAPH_WIDTH);
   Serial.print(F(" value: "));
-  Serial.print(range);
+  Serial.println(sample);
 
-  EEPROM.write(SAMPLES_OFFSET + sampleCount, range);
+  EEPROM.write(SAMPLES_OFFSET + sampleCount, sample);
   return VL6180X_ERROR_NONE;
 };
 

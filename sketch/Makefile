@@ -8,10 +8,10 @@ $(OBJ): $(TARGET).ino
 
 .PHONY: clean tty
 
-upload: $(TARGET).arduino.avr.nano.hex
+upload: $(OBJ)
 	arduino-cli upload -p $(TTY) --fqbn arduino:avr:nano:cpu=atmega328 ../sketch
 
-upload_old: $(TARGET).arduino.avr.nano.hex
+upload_old: $(OBJ)
 	arduino-cli upload -p $(TTY) --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
 debug:

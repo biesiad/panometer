@@ -6,7 +6,6 @@
 #include <Adafruit_SSD1306.h>
 
 #define BAUD 9600
-#define RECENT_SAMPLES 5              // number of samples for running average
 
 #define SAMPLES_COUNT_OFFSET 0        // samples count (16 bit) address in EEPROM
 #define SAMPLE_MAX_OFFSET 2           // container depth (8 bit) address in EEPROM
@@ -58,36 +57,6 @@ static const unsigned char PROGMEM splashscreen[] = {
   B00000000, B00011111, B11111111, B11111111, B00000000, B00000000, B00000000, B00000000
 };
 
-struct Recent
-{
-  uint8_t array[RECENT_SAMPLES];
-  uint8_t index;
-  uint8_t size;
-} recent;
-
-void addRecent(struct Recent *recent, uint8_t sample)
-{
-  recent->array[recent->index] = sample;
-  recent->index++;
-  if (recent->index == recent->size)
-    recent->index = 0;
-};
-
-uint8_t average(uint8_t *arr, uint8_t size)
-{
-  short sum = 0;
-  uint8_t count = 0;
-  for (uint8_t i = 0; i < size; i++)
-  {
-    if (arr[i] != NULL)
-    {
-      sum += arr[i];
-      count++;
-    }
-  }
-  return sum / count;
-};
-
 uint8_t readButton()
 {
   static boolean buttonActive = false;
@@ -126,73 +95,31 @@ uint8_t readButton()
   return 0;
 };
 
-// Reads a sample (mean of 5 readings), calculates running average, and saves to EEPROM
 uint8_t readSample(uint8_t sampleCount)
 {
   Serial.print(F("Reading samples"));
 
-  uint8_t readingSum = 0;
-  const uint8_t readingCount = 5;
+  uint8_t range = vl.readRange();
+  uint8_t status = vl.readRangeStatus();
 
-  for (int i = 0; i < readingCount; i ++) {
-    uint8_t sample = vl.readRange();
-    uint8_t status = vl.readRangeStatus();
-
-    if (status != VL6180X_ERROR_NONE) {
-      Serial.print(F(". VL6180x Error: "));
-      Serial.println(status);
-      return status;
-    }
-    readingSum += sample;
+  if (status != VL6180X_ERROR_NONE) {
+    Serial.print(F(". VL6180x Error: "));
+    Serial.println(status);
+    return status;
   }
-
-  uint8_t sample = readingSum / readingCount;
-
-  addRecent(&recent, sample);
-  uint8_t avg = average(recent.array, recent.size);
 
   Serial.print(F(" "));
   Serial.print(sampleCount);
   Serial.print(F("/"));
   Serial.print(GRAPH_WIDTH);
   Serial.print(F(" value: "));
-  Serial.print(sample);
-  Serial.print(F(" average: "));
-  Serial.println(avg);
+  Serial.print(range);
 
-  EEPROM.write(SAMPLES_OFFSET + sampleCount, avg);
+  EEPROM.write(SAMPLES_OFFSET + sampleCount, range);
   return VL6180X_ERROR_NONE;
 };
 
 void drawSamples()
-{
-  uint16_t sampleCount = 0;
-  EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
-
-  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
-
-  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
-
-  for (int i = 0; i < sampleCount; i++)
-  {
-    uint8_t sample = EEPROM.read(SAMPLES_OFFSET + i);
-    uint8_t x = i * barWidth;
-    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
-    uint8_t height = max(1, DISPLAY_HEIGHT - y);
-    display.fillRect(x, y, barWidth, height, WHITE);
-  }
-
-  display.fillRect(0, 0, 60, 14, BLACK);
-  display.setCursor(0, 0);
-  display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
-  display.print(F("h"));
-  display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
-  display.print(F("m"));
-
-  display.display();
-}
-
-void drawResampledSamples()
 {
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
@@ -210,11 +137,11 @@ void drawResampledSamples()
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
 
-  for (int i = 0; i < GRAPH_WIDTH; i++) {
-    uint8_t sample = resampledSamples[i];
+  for (int x = 0; x < GRAPH_WIDTH; x++) {
+    uint8_t sample = resampledSamples[x];
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
-    display.fillRect(i, y, 1, height, WHITE);
+    display.fillRect(x, y, 1, height, WHITE);
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);
@@ -340,21 +267,6 @@ void setup()
   Serial.println(sampleCount);
   Serial.println(F("OK"));
 
-  Serial.println(F("Loading recent samples"));
-  recent.index = 0;
-  recent.size = RECENT_SAMPLES;
-
-  // load last RECENT_SAMPLES samples from EEPROM
-  for (uint8_t n = 0; n < RECENT_SAMPLES && sampleCount - n > 0; n++)
-  {
-    addRecent(&recent, EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
-    Serial.print(F("Loaded "));
-    Serial.print(EEPROM.read(SAMPLES_OFFSET + sampleCount - n));
-    Serial.print(F(" at "));
-    Serial.println(sampleCount - n);
-  };
-  Serial.println(F("OK"));
-
   pinMode(BUTTON_PIN, INPUT);
 
   display.setTextColor(WHITE);
@@ -382,6 +294,9 @@ void setup()
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
       calibrate();
+      display.setCursor(110, 0);
+      display.fillRect(110, 0, DISPLAY_WIDTH - 110, 14, BLACK);
+      display.print(EEPROM.read(SAMPLE_MAX_OFFSET));
       display.display();
       break;
     }
@@ -393,14 +308,11 @@ void setup()
     calibrate();
   }
 
-  display.fillRect(115, 0, DISPLAY_WIDTH - 115, 14, BLACK);
-  display.setCursor(115, 0);
-  display.print(EEPROM.read(SAMPLE_MAX_OFFSET));
-
   delay(3000);
   display.clearDisplay();
+  display.display();
 
-  drawResampledSamples();
+  drawSamples();
 }
 
 void loop()
@@ -420,10 +332,6 @@ void loop()
       break;
     case BUTTON_PUSH_AND_HOLD:
       EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
-      for (uint8_t i = 0; i < RECENT_SAMPLES; i++)
-      {
-        recent.array[i] = 0;
-      }
       lastSampleTime = 0;
       paused = false;
       blinkInterval = 0;
@@ -472,7 +380,7 @@ void loop()
       if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
         EEPROM.put(SAMPLES_COUNT_OFFSET, sampleCount + 1);
         lastSampleTime = millis();
-        drawResampledSamples();
+        drawSamples();
       } else {
         // if error reading sample, wait 1s and try again
         delay(1000);

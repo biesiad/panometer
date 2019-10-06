@@ -192,6 +192,87 @@ void drawSamples()
   display.display();
 }
 
+void drawResampledSamples()
+{
+  uint16_t sampleCount = 0;
+  EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
+
+  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
+
+  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
+
+  uint8_t samples[sampleCount];
+  uint8_t resampledSamples[GRAPH_WIDTH];
+
+  for (int i = 0; i < sampleCount; i++) {
+    samples[i] = EEPROM.read(SAMPLES_OFFSET + i);
+  }
+
+  linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
+
+  for (int i = 0; i < GRAPH_WIDTH; i++) {
+    uint8_t sample = resampledSamples[i];
+    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
+    uint8_t height = max(1, DISPLAY_HEIGHT - y);
+    display.fillRect(i, y, 1, height, WHITE);
+  }
+
+  display.fillRect(0, 0, 60, 14, BLACK);
+  display.setCursor(0, 0);
+  display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
+  display.print(F("h"));
+  display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
+  display.print(F("m"));
+
+  display.display();
+}
+
+void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *output)
+{
+  int i = 0;
+  double ratio = (double)inputc / outputc;
+  double x = (ratio / 2);
+
+  // printf("%f\n", ratio);
+
+  while (x < inputc) {
+    double average = 0;
+
+    // x of closest points from the original set
+    double xoh = round(x) + 0.5;
+    double xol = xoh - 1;
+
+    // deltas between x and closest points
+    double dl = x - xol;
+    double dh = xoh - x;
+
+    // weights for closest points
+    double wl = (1 - dl);
+    double wh = (1 - dh);
+
+    // ignore "imaginary" points outside of original set
+    if (xol < 0) {
+      wl = 0;
+      wh = 1;
+    }
+
+    if (xoh > inputc) {
+      wl = 1;
+      wh = 0;
+    }
+
+    // weighted average of closest points
+    average += input[(int)floor(xol)] * wl;
+    average += input[(int)floor(xoh)] * wh;
+
+    // printf("x: %.2f xol: %.2f xoh: %.2f dl: %.2f dh: %.2f wl: %.2f wh: %.2f average: %.2f\n", x, xol, xoh, dl, dh, wl, wh, average);
+    output[i] = round(average);
+
+    x += ratio;
+    i++;
+  }
+}
+
 void calibrate() {
   // load 5 samples and count the average
   uint8_t count = 5;
@@ -319,7 +400,7 @@ void setup()
   delay(3000);
   display.clearDisplay();
 
-  drawSamples();
+  drawResampledSamples();
 }
 
 void loop()
@@ -391,7 +472,7 @@ void loop()
       if (readSample(sampleCount) == VL6180X_ERROR_NONE) {
         EEPROM.put(SAMPLES_COUNT_OFFSET, sampleCount + 1);
         lastSampleTime = millis();
-        drawSamples();
+        drawResampledSamples();
       } else {
         // if error reading sample, wait 1s and try again
         delay(1000);

@@ -12,9 +12,10 @@
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 #define SAMPLE_DELAY (10*60*1000L)    // sample every 10 minutes
 
-#define DISPLAY_WIDTH 128
+#define DISPLAY_WIDTH 128             // display dimensions
 #define DISPLAY_HEIGHT 64
-#define GRAPH_WIDTH 128
+
+#define GRAPH_WIDTH 128               // graph dimensions
 #define GRAPH_HEIGHT 50
 
 #define BUTTON_HOLD_DELAY 2000        // push and hold delay ms
@@ -57,11 +58,18 @@ static const unsigned char PROGMEM splashscreen[] = {
   B00000000, B00011111, B11111111, B11111111, B00000000, B00000000, B00000000, B00000000
 };
 
+/*
+ * Reads button state and returns:
+ * BUTTON_PUSH - button have been pushed and released BUTTON_HOLD_DELAY
+ * BUTTON_PUSH_AND_HOLD - button has been pushed for more than BUTTON_HOLD_DELAY and is still pushed
+ * 0 - not pushed
+ */
 uint8_t readButton()
 {
   static boolean buttonActive = false;
   static boolean buttonHoldActive = false;
   static unsigned long buttonActiveTime = 0;
+
 
   if (digitalRead(BUTTON_PIN) == HIGH)
   {

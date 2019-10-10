@@ -308,7 +308,6 @@ void setup()
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
       calibrate();
-      EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
       display.setCursor(115, 0);
       display.fillRect(115, 0, DISPLAY_WIDTH - 110, 14, BLACK);
       display.print(F("OK"));
@@ -321,7 +320,6 @@ void setup()
   if (EEPROM.read(SAMPLE_MAX_OFFSET) == 255)
   {
     calibrate();
-    EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
   }
 
   delay(3000);
@@ -365,7 +363,7 @@ void loop()
   uint16_t sampleCount;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
-  if (sampleCount == GRAPH_WIDTH)
+  if (sampleCount >= GRAPH_WIDTH)
   {
       display.fillRect(60, 0, 68, 14, BLACK);
       display.setCursor(60, 0);

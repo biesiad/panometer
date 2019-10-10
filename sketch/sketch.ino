@@ -141,7 +141,9 @@ void drawSamples()
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
+
   uint8_t barWidth = GRAPH_WIDTH / sampleCount;
+  uint8_t hourBreaks = sampleCount / 6;
 
   display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
 
@@ -159,7 +161,13 @@ void drawSamples()
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
+
+    // add hour markers
+    if (x > 0 && x % (GRAPH_WIDTH / hourBreaks) == 0) {
+      display.fillRect(x, DISPLAY_HEIGHT - 1, 1, 1, BLACK);
+    }
   }
+
 
   display.fillRect(0, 0, 60, 14, BLACK);
   display.setCursor(0, 0);
@@ -334,7 +342,7 @@ void setup()
 void loop()
 {
   static unsigned long lastSampleTime = 0;
-  static boolean paused = false;
+  static boolean paused = true;
   static uint16_t blinkInterval = 0;
   static boolean blink = false;
 

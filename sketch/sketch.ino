@@ -141,14 +141,9 @@ void drawSamples()
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
-
-  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
-  uint8_t hourBreaks = sampleCount / 6;
-
-  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
-
   uint8_t samples[sampleCount];
   uint8_t resampledSamples[GRAPH_WIDTH];
+  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
   for (int i = 0; i < sampleCount; i++) {
     samples[i] = EEPROM.read(SAMPLES_OFFSET + i);
@@ -156,18 +151,14 @@ void drawSamples()
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
 
+  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
+
   for (int x = 0; x < GRAPH_WIDTH; x++) {
     uint8_t sample = resampledSamples[x];
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
-
-    // add hour markers
-    if (x > 0 && x % (GRAPH_WIDTH / hourBreaks) == 0) {
-      display.fillRect(x, DISPLAY_HEIGHT - 1, 1, 1, BLACK);
-    }
   }
-
 
   display.fillRect(0, 0, 60, 14, BLACK);
   display.setCursor(0, 0);
@@ -303,33 +294,34 @@ void setup()
 
   // Calibration
   unsigned long buttonPressedStartMillis = millis();
-  boolean buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
 
-  if (buttonPressed)
+  if (digitalRead(BUTTON_PIN) == HIGH)
   {
     display.setCursor(120, 0);
     display.print("C");
     display.display();
   }
 
-  while (buttonPressed)
+  while (digitalRead(BUTTON_PIN) == HIGH)
   {
     // if pressed for > BUTTON_HOLD_DELAY, calibrate
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
     {
       calibrate();
+      EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
       display.setCursor(115, 0);
       display.fillRect(115, 0, DISPLAY_WIDTH - 110, 14, BLACK);
       display.print(F("OK"));
       display.display();
       break;
     }
-    buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
   }
 
+  // never calibrated, so calibrating
   if (EEPROM.read(SAMPLE_MAX_OFFSET) == 255)
   {
     calibrate();
+    EEPROM.put(SAMPLES_COUNT_OFFSET, 0);
   }
 
   delay(3000);

@@ -8,7 +8,7 @@ void nearest_neighbor (int inputc, int in[], int outputc, int *output)
 
   for (int i = 0; i < outputc; i++) {
     double x = ratio * i;
-    double delta_floor = (double)x - (double)floor(x);
+    double delta_floor = x - floor(x);
     double delta_ceil = (ceil(x) + 1) - x;
     int index = (delta_floor <= delta_ceil) ? floor(x) : ceil(x);
 
@@ -54,36 +54,65 @@ void linear (int inputc, int input[], int outputc, int *output)
     average += input[(int)floor(xol)] * wl;
     average += input[(int)floor(xoh)] * wh;
 
-    // printf("x: %.2f xol: %.2f xoh: %.2f dl: %.2f dh: %.2f wl: %.2f wh: %.2f average: %.2f\n", x, xol, xoh, dl, dh, wl, wh, average);
-    output[i] = round(average);
+    output[i] = round(average - 0.1);
 
     x += ratio;
     i++;
   }
 }
 
+void resample_markings(int inputc, int input[], int outputc, int *output)
+{
+  int zeros[outputc];
+
+  linear(inputc, input, outputc, zeros);
+
+  for (int i = 0; i < outputc; i++) {
+    if (i > 0 && zeros[i - 1] == 1) {
+      output[i] = 0;
+    } else {
+      output[i] = zeros[i];
+    }
+  }
+}
+
 int main ()
 {
-  const int inputc = 4;
-  int input[] = {1, 2, 4, 2};
+  const int inputc = 10;
+  int input[] = {1, 3, 6, 4, 3, 2, 2, 1, 1, 0};
 
   for (int i = 0; i < inputc; i++) {
     printf("%i ", input[i]);
   }
   printf("\n");
 
-  const int outputc = 20;
+  const int outputc = 23;
   int output[outputc];
 
-  printf("nearest neighbor: ");
+  printf("nearest neighbor:        ");
   nearest_neighbor(inputc, input, outputc, output);
   for (int i = 0; i < outputc; i++) {
     printf("%i ", output[i]);
   }
   printf("\n");
 
-  printf("linear:           ");
+  printf("linear:                  ");
   linear(inputc, input, outputc, output);
+  for (int i = 0; i < outputc; i++) {
+    printf("%i ", output[i]);
+  }
+  printf("\n");
+
+
+  for (int i = 0; i < inputc; i++) {
+    input[i] = (i + 1) % 3 ? 0 : 1;
+    printf("%i ", input[i]);
+  }
+  printf("\n");
+
+  printf("resample markings:       ");
+
+  resample_markings(inputc, input, outputc, output);
   for (int i = 0; i < outputc; i++) {
     printf("%i ", output[i]);
   }

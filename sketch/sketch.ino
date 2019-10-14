@@ -154,11 +154,32 @@ void drawSamples()
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
 
+  // hour markings
+  uint8_t markings[sampleCount];
+  uint8_t resampledMarkings[GRAPH_WIDTH];
+
+  for (uint8_t i = 0; i < sampleCount; i++) {
+    markings[i] = (i + 1) % 6 ? 0 : 1;
+  }
+
+  linearResample(sampleCount, markings, GRAPH_WIDTH, resampledMarkings);
+
+  for (uint8_t i = 0; i < GRAPH_WIDTH; i++) {
+    if (i > 0 && resampledMarkings[i - 1] == 1) {
+      resampledMarkings[i] = 0;
+    }
+  }
+
+  // draw graph
   for (int x = 0; x < GRAPH_WIDTH; x++) {
     uint8_t sample = resampledSamples[x];
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
+
+    if (resampledMarkings[x] == 1) {
+      display.fillRect(x, y, 1, 1, BLACK);
+    }
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);

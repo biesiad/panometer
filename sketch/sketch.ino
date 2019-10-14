@@ -141,12 +141,9 @@ void drawSamples()
   uint16_t sampleCount = 0;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
-  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
-
-  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
-
   uint8_t samples[sampleCount];
   uint8_t resampledSamples[GRAPH_WIDTH];
+  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
   for (int i = 0; i < sampleCount; i++) {
     samples[i] = EEPROM.read(SAMPLES_OFFSET + i);
@@ -171,6 +168,8 @@ void drawSamples()
   }
 
   // draw graph
+  display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
+
   for (int x = 0; x < GRAPH_WIDTH; x++) {
     uint8_t sample = resampledSamples[x];
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
@@ -316,16 +315,15 @@ void setup()
 
   // Calibration
   unsigned long buttonPressedStartMillis = millis();
-  boolean buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
 
-  if (buttonPressed)
+  if (digitalRead(BUTTON_PIN) == HIGH)
   {
     display.setCursor(120, 0);
     display.print("C");
     display.display();
   }
 
-  while (buttonPressed)
+  while (digitalRead(BUTTON_PIN) == HIGH)
   {
     // if pressed for > BUTTON_HOLD_DELAY, calibrate
     if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
@@ -337,9 +335,9 @@ void setup()
       display.display();
       break;
     }
-    buttonPressed = digitalRead(BUTTON_PIN) == HIGH;
   }
 
+  // never calibrated, so calibrating
   if (EEPROM.read(SAMPLE_MAX_OFFSET) == 255)
   {
     calibrate();
@@ -355,7 +353,7 @@ void setup()
 void loop()
 {
   static unsigned long lastSampleTime = 0;
-  static boolean paused = false;
+  static boolean paused = true;
   static uint16_t blinkInterval = 0;
   static boolean blink = false;
 
@@ -386,7 +384,7 @@ void loop()
   uint16_t sampleCount;
   EEPROM.get(SAMPLES_COUNT_OFFSET, sampleCount);
 
-  if (sampleCount == GRAPH_WIDTH)
+  if (sampleCount >= GRAPH_WIDTH)
   {
       display.fillRect(60, 0, 68, 14, BLACK);
       display.setCursor(60, 0);

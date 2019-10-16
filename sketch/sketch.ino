@@ -60,7 +60,7 @@ static const unsigned char PROGMEM splashscreen[] = {
 
 /*
  * Reads button state and returns:
- * BUTTON_PUSH - button have been pushed and released BUTTON_HOLD_DELAY
+ * BUTTON_PUSH - button have been pushed and released before BUTTON_HOLD_DELAY
  * BUTTON_PUSH_AND_HOLD - button has been pushed for more than BUTTON_HOLD_DELAY and is still pushed
  * 0 - not pushed
  */
@@ -103,6 +103,10 @@ uint8_t readButton()
   return 0;
 };
 
+/*
+ * Takes 5 readings, calculates the average, and saves it in EEPROM.
+ * Returns sensor status
+ */
 uint8_t readSample(uint8_t sampleCount)
 {
   Serial.print(F("Reading samples"));
@@ -236,8 +240,10 @@ void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *
   }
 }
 
+/*
+ * Takes 5 readings, calculates the average, and saves it in EEPROM at SAMPLE_MAX_OFFSET
+ */
 void calibrate() {
-  // load 5 samples and count the average
   uint8_t count = 5;
   short sum = 0;
   for (uint8_t n = 0; n < count; n++)
@@ -249,6 +255,7 @@ void calibrate() {
     {
       sum += sample;
     } else {
+      // TODO: indicate callibration error on the display
       Serial.print(F("Can't calibrate VL6180X. Error: "));
       Serial.println(status);
       while(1);
@@ -395,7 +402,7 @@ void loop()
 
   if (paused)
   {
-    if (blinkInterval == 0 || blinkInterval > 500)
+    if (blinkInterval == 0 || blinkInterval > 300)
     {
       display.fillRect(DISPLAY_WIDTH - 10, 0, 10, 14, BLACK);
       uint8_t color = blink ? WHITE : BLACK;
@@ -418,6 +425,7 @@ void loop()
         drawSamples();
       } else {
         // if error reading sample, wait 1s and try again
+        // TODO: indicate error on the display
         delay(1000);
       }
     }

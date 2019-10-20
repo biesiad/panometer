@@ -147,7 +147,6 @@ void drawSamples()
 
   uint8_t samples[sampleCount];
   uint8_t resampledSamples[GRAPH_WIDTH];
-  uint8_t barWidth = GRAPH_WIDTH / sampleCount;
 
   for (int i = 0; i < sampleCount; i++) {
     samples[i] = EEPROM.read(SAMPLES_OFFSET + i);
@@ -155,33 +154,26 @@ void drawSamples()
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
 
-  // hour markings
-  uint8_t markings[sampleCount];
-  uint8_t resampledMarkings[GRAPH_WIDTH];
-
-  for (uint8_t i = 0; i < sampleCount; i++) {
-    markings[i] = (i + 1) % 6 ? 0 : 1;
-  }
-
-  linearResample(sampleCount, markings, GRAPH_WIDTH, resampledMarkings);
-
-  for (uint8_t i = 0; i < GRAPH_WIDTH; i++) {
-    if (i > 0 && resampledMarkings[i - 1] == 1) {
-      resampledMarkings[i] = 0;
-    }
-  }
-
   // draw graph
   display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
 
-  for (int x = 0; x < GRAPH_WIDTH; x++) {
+  for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
     uint8_t sample = resampledSamples[x];
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
+  }
 
-    if (resampledMarkings[x] == 1) {
-      display.fillRect(x, y, 1, 1, BLACK);
+  // hour markings
+  for (uint8_t i = 0; i < sampleCount; i++) {
+    samples[i] = (i + 1) % 6 ? 0 : 1;
+  }
+
+  linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
+
+  for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
+    if (x > 0 && resampledSamples[x] == 1 && resampledSamples[x - 1] == 0) {
+      display.fillRect(x, DISPLAY_HEIGHT - 1, 1, 1, BLACK);
     }
   }
 

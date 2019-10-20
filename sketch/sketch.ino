@@ -8,7 +8,6 @@
 #define BAUD 9600
 
 #define SAMPLES_COUNT_OFFSET 0        // samples count (16 bit) address in EEPROM
-#define SAMPLE_MAX_OFFSET 2           // container depth (8 bit) address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
 #define SAMPLE_DELAY (10*60*1000L)    // sample every 10 minutes
 
@@ -147,9 +146,13 @@ void drawSamples()
 
   uint8_t samples[sampleCount];
   uint8_t resampledSamples[GRAPH_WIDTH];
+  uint8_t max = 0;
 
-  for (int i = 0; i < sampleCount; i++) {
+  for (uint8_t i = 0; i < sampleCount; i++) {
     samples[i] = EEPROM.read(SAMPLES_OFFSET + i);
+    if (samples[i] > max) {
+      max = samples[i];
+    }
   }
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
@@ -159,7 +162,7 @@ void drawSamples()
 
   for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
     uint8_t sample = resampledSamples[x];
-    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (EEPROM.read(SAMPLE_MAX_OFFSET) - sample)) / EEPROM.read(SAMPLE_MAX_OFFSET)));
+    uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (max - sample)) / max));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
   }
@@ -232,32 +235,6 @@ void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *
   }
 }
 
-/*
- * Takes 5 readings, calculates the average, and saves it in EEPROM at SAMPLE_MAX_OFFSET
- */
-void calibrate() {
-  uint8_t count = 5;
-  short sum = 0;
-  for (uint8_t n = 0; n < count; n++)
-  {
-    uint8_t sample = vl.readRange();
-    uint8_t status = vl.readRangeStatus();
-
-    if (status == VL6180X_ERROR_NONE)
-    {
-      sum += sample;
-    } else {
-      // TODO: indicate callibration error on the display
-      Serial.print(F("Can't calibrate VL6180X. Error: "));
-      Serial.println(status);
-      while(1);
-    }
-  };
-
-  // 255 means it hasn't been callibrated, so max 254
-  EEPROM.write(SAMPLE_MAX_OFFSET, min(sum / count, 254));
-}
-
 void setup()
 {
   Serial.begin(BAUD);
@@ -311,40 +288,7 @@ void setup()
   display.setCursor(38, 48);
   display.print(F("PANOMETER"));
   display.display();
-
-  // Calibration
-  unsigned long buttonPressedStartMillis = millis();
-
-  if (digitalRead(BUTTON_PIN) == HIGH)
-  {
-    display.setCursor(120, 0);
-    display.print("C");
-    display.display();
-  }
-
-  while (digitalRead(BUTTON_PIN) == HIGH)
-  {
-    // if pressed for > BUTTON_HOLD_DELAY, calibrate
-    if (millis() - buttonPressedStartMillis > BUTTON_HOLD_DELAY)
-    {
-      calibrate();
-      display.setCursor(115, 0);
-      display.fillRect(115, 0, DISPLAY_WIDTH - 110, 14, BLACK);
-      display.print(F("OK"));
-      display.display();
-      break;
-    }
-  }
-
-  // never calibrated, so calibrating
-  if (EEPROM.read(SAMPLE_MAX_OFFSET) == 255)
-  {
-    calibrate();
-  }
-
   delay(3000);
-  display.clearDisplay();
-  display.display();
 
   drawSamples();
 }

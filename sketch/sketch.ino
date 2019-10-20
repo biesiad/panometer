@@ -9,7 +9,9 @@
 
 #define SAMPLES_COUNT_OFFSET 0        // samples count (16 bit) address in EEPROM
 #define SAMPLES_OFFSET 8              // samples data address in EEPROM
-#define SAMPLE_DELAY (10*60*1000L)    // sample every 10 minutes
+
+#define SAMPLES_PER_HOUR 6
+#define SAMPLE_DELAY (10 * 60 * 1000L)
 
 #define DISPLAY_WIDTH 128             // display dimensions
 #define DISPLAY_HEIGHT 64
@@ -182,9 +184,9 @@ void drawSamples()
 
   display.fillRect(0, 0, 60, 14, BLACK);
   display.setCursor(0, 0);
-  display.print(((sampleCount - 1) * SAMPLE_DELAY) / (60 * 60 * 1000L) , DEC);
+  display.print((sampleCount - 1) / SAMPLES_PER_HOUR, DEC);
   display.print(F("h"));
-  display.print((((sampleCount - 1) * SAMPLE_DELAY) % (60 * 60 * 1000L)) / (60 * 1000L), DEC);
+  display.print(((sampleCount - 1) % SAMPLES_PER_HOUR) * 10, DEC);
   display.print(F("m"));
 
   display.display();

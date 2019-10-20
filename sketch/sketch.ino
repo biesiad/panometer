@@ -292,6 +292,7 @@ void setup()
   display.display();
   delay(3000);
 
+  display.clearDisplay();
   drawSamples();
 }
 

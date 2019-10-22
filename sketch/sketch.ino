@@ -171,14 +171,22 @@ void drawSamples()
 
   // hour markings
   for (uint8_t i = 0; i < sampleCount; i++) {
-    samples[i] = (i + 1) % 6 ? 0 : 1;
+    samples[i] = i % 6 ? 0 : 1;
   }
 
   linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
 
-  for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
-    if (x > 0 && resampledSamples[x] == 1 && resampledSamples[x - 1] == 0) {
-      display.fillRect(x, DISPLAY_HEIGHT - 1, 1, 1, BLACK);
+  uint8_t at = 0;
+  uint8_t count = 0;
+
+  for (uint8_t x = 1; x < GRAPH_WIDTH; x++) {
+    if (resampledSamples[x - 1] == 0 && resampledSamples[x] == 1) {
+      while (resampledSamples[x + (++count)] == 1);
+      at = x + count / 2;
+    }
+    if (x == at) {
+      count = 0;
+      display.fillRect(x, DISPLAY_HEIGHT - GRAPH_HEIGHT, 1, 1, WHITE);
     }
   }
 

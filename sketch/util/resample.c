@@ -61,21 +61,6 @@ void linear (int inputc, int input[], int outputc, int *output)
   }
 }
 
-void resample_markings(int inputc, int input[], int outputc, int *output)
-{
-  int zeros[outputc];
-
-  linear(inputc, input, outputc, zeros);
-
-  for (int i = 0; i < outputc; i++) {
-    if (i > 0 && zeros[i - 1] == 1) {
-      output[i] = 0;
-    } else {
-      output[i] = zeros[i];
-    }
-  }
-}
-
 int main ()
 {
   const int inputc = 10;
@@ -86,7 +71,7 @@ int main ()
   }
   printf("\n");
 
-  const int outputc = 23;
+  const int outputc = 30;
   int output[outputc];
 
   printf("nearest neighbor:        ");
@@ -105,16 +90,32 @@ int main ()
 
 
   for (int i = 0; i < inputc; i++) {
-    input[i] = (i + 1) % 3 ? 0 : 1;
+    input[i] = (i + 1) % 7 ? 0 : 1;
     printf("%i ", input[i]);
   }
   printf("\n");
 
   printf("resample markings:       ");
-
-  resample_markings(inputc, input, outputc, output);
+  linear(inputc, input, outputc, output);
   for (int i = 0; i < outputc; i++) {
     printf("%i ", output[i]);
+  }
+  printf("\n");
+
+  printf("resample markings short: ");
+  int at = 0;
+  int count = 0;
+  for (int i = 0; i < outputc; i++) {
+    if (output[i - 1] == 0 && output[i] == 1) {
+      while (output[i + (++count)] == 1);
+      at = i + count / 2;
+    }
+    if (i > 0 && i == at) {
+      count = 0;
+      printf("%i ", 1);
+    } else {
+      printf("%i ", 0);
+    }
   }
   printf("\n");
 

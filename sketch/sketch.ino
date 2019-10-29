@@ -163,7 +163,19 @@ void drawSamples()
   display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
 
   for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
+#ifdef SMOOTH
+    // use running average to smoothen the graph
+    // const uint8_t averageCount = 5;
+    uint16_t averageSum = 0;
+    uint8_t a = 0;
+    while (a < averageCount && x - a >= 0) {
+      averageSum += resampledSamples[x - a];
+      a++;
+    }
+    uint8_t sample = averageSum / a;
+#else
     uint8_t sample = resampledSamples[x];
+#endif
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (max - sample)) / max));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);

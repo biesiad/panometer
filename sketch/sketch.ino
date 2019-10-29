@@ -25,6 +25,8 @@
 #define BUTTON_PUSH 1
 #define BUTTON_PUSH_AND_HOLD 2
 
+void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *output);
+
 Adafruit_VL6180X vl = Adafruit_VL6180X();
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
@@ -163,7 +165,7 @@ void drawSamples()
   display.fillRect(0, DISPLAY_HEIGHT - GRAPH_HEIGHT, DISPLAY_WIDTH + 1, GRAPH_HEIGHT, BLACK);
 
   for (uint8_t x = 0; x < GRAPH_WIDTH; x++) {
-#ifdef SMOOTH
+    #ifdef SMOOTH
     // use running average to smoothen the graph
     // const uint8_t averageCount = 5;
     uint16_t averageSum = 0;
@@ -173,9 +175,9 @@ void drawSamples()
       a++;
     }
     uint8_t sample = averageSum / a;
-#else
+    #else
     uint8_t sample = resampledSamples[x];
-#endif
+    #endif
     uint8_t y = min(DISPLAY_HEIGHT - 1, DISPLAY_HEIGHT - ((GRAPH_HEIGHT * (max - sample)) / max));
     uint8_t height = max(1, DISPLAY_HEIGHT - y);
     display.fillRect(x, y, 1, height, WHITE);
@@ -210,51 +212,6 @@ void drawSamples()
   display.print(F("m"));
 
   display.display();
-}
-
-void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *output)
-{
-  // https://entropymine.com/imageworsener/resample/
-  // https://www.ldv.ei.tum.de/fileadmin/w00bfa/www/content_uploads/Vorlesung_3.4_Resampling.pdf
-
-  int i = 0;
-  double ratio = (double)inputc / outputc;
-  double x = (ratio / 2);
-
-  while (x < inputc) {
-    double average = 0;
-
-    // x of closest points from the original set
-    double xoh = round(x) + 0.5;
-    double xol = xoh - 1;
-
-    // deltas between x and closest points
-    double dl = x - xol;
-    double dh = xoh - x;
-
-    // weights for closest points
-    double wl = (1 - dl);
-    double wh = (1 - dh);
-
-    // ignore "imaginary" points outside of original set
-    if (xol < 0) {
-      wl = 0;
-      wh = 1;
-    }
-    if (xoh > inputc) {
-      wl = 1;
-      wh = 0;
-    }
-
-    // weighted average of closest points
-    average += input[(int)floor(xol)] * wl;
-    average += input[(int)floor(xoh)] * wh;
-
-    output[i] = round(average);
-
-    x += ratio;
-    i++;
-  }
 }
 
 void setup()

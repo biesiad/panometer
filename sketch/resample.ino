@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <math.h>
+
 void nearest_neighbor (int inputc, int in[], int outputc, int *output)
 {
   double ratio = (double)inputc / outputc;
@@ -12,7 +15,7 @@ void nearest_neighbor (int inputc, int in[], int outputc, int *output)
   }
 }
 
-void linearResample (uint8_t inputc, uint8_t input[], uint8_t outputc, uint8_t *output)
+void linearResample (unsigned char inputc, unsigned char input[], unsigned char outputc, unsigned char *output)
 {
   // https://entropymine.com/imageworsener/resample/
   // https://www.ldv.ei.tum.de/fileadmin/w00bfa/www/content_uploads/Vorlesung_3.4_Resampling.pdf

@@ -3,7 +3,7 @@ TTY = $(shell ls /dev/tty.*  | grep -e usbserial)
 OBJ = $(TARGET).arduino.avr.nano.hex $(TARGET).arduino.avr.nano.elf
 BAUD = 9600
 
-$(OBJ): $(%.ino)
+$(OBJ): *.ino
 	arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old ../sketch
 
 .PHONY: clean tty

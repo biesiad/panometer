@@ -14,7 +14,7 @@ arduino-cli core update-index
 arduino-cli core install arduino:avr
 
 # compile and upload
-make compile
+make
 make upload # or upload_old depending on the version of the bootloader
 ```
 

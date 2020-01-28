@@ -183,32 +183,22 @@ void drawSamples()
     display.fillRect(x, y, 1, height, WHITE);
   }
 
-  // hour markings
+  // highest point time
+  uint8_t highestPointSample = 0;
+  uint8_t highestPointSampleValue = samples[0];
+
   for (uint8_t i = 0; i < sampleCount; i++) {
-    samples[i] = i % 6 ? 0 : 1;
-  }
-
-  linearResample(sampleCount, samples, GRAPH_WIDTH, resampledSamples);
-
-  uint8_t at = 0;
-  uint8_t count = 0;
-
-  for (uint8_t x = 1; x < GRAPH_WIDTH; x++) {
-    if (resampledSamples[x - 1] == 0 && resampledSamples[x] == 1) {
-      while (resampledSamples[x + (++count)] == 1);
-      at = x + count / 2;
-    }
-    if (x == at) {
-      count = 0;
-      display.fillRect(x, DISPLAY_HEIGHT - GRAPH_HEIGHT, 1, 1, WHITE);
+    if (samples[i] > highestPointSampleValue) {
+      highestPointSampleValue = samples[i];
+      highestPointSample = i;
     }
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);
   display.setCursor(0, 0);
-  display.print((sampleCount - 1) / SAMPLES_PER_HOUR, DEC);
+  display.print((highestPointSample - 1) / SAMPLES_PER_HOUR, DEC);
   display.print(F("h"));
-  display.print(((sampleCount - 1) % SAMPLES_PER_HOUR) * 10, DEC);
+  display.print(((highestPointSample - 1) % SAMPLES_PER_HOUR) * 10, DEC);
   display.print(F("m"));
 
   display.display();

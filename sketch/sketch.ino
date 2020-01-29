@@ -183,7 +183,6 @@ void drawSamples()
     display.fillRect(x, y, 1, height, WHITE);
   }
 
-  // highest point time
   uint8_t highestPointSample = 0;
   uint8_t highestPointSampleValue = samples[0];
 
@@ -195,6 +194,7 @@ void drawSamples()
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);
+  display.fillTriangle(1, 9, 5, 1, 9, 9, WHITE);
   display.setCursor(0, 0);
   display.print((highestPointSample - 1) / SAMPLES_PER_HOUR, DEC);
   display.print(F("h"));

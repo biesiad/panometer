@@ -189,7 +189,7 @@ void drawSamples()
   for (uint8_t i = 0; i < sampleCount; i++) {
     if (samples[i] < highestPointSampleValue) {
       highestPointSampleValue = samples[i];
-      highestPointSample = i;
+      highestPointSampleIndex = i;
     }
   }
 
@@ -198,7 +198,7 @@ void drawSamples()
   display.setCursor(8, 0);
   display.print((highestPointSample - 1) / SAMPLES_PER_HOUR, DEC);
   display.print(F("h"));
-  display.print(((highestPointSample - 1) % SAMPLES_PER_HOUR) * 10, DEC);
+  display.print(((highestPointSampleIndex) % SAMPLES_PER_HOUR) * 10, DEC);
   display.print(F("m"));
 
   display.display();

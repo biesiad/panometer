@@ -183,19 +183,19 @@ void drawSamples()
     display.fillRect(x, y, 1, height, WHITE);
   }
 
-  uint8_t highestPointSample = 0;
+  uint8_t highestPointSample = 255;
   uint8_t highestPointSampleValue = samples[0];
 
   for (uint8_t i = 0; i < sampleCount; i++) {
-    if (samples[i] > highestPointSampleValue) {
+    if (samples[i] < highestPointSampleValue) {
       highestPointSampleValue = samples[i];
       highestPointSample = i;
     }
   }
 
   display.fillRect(0, 0, 60, 14, BLACK);
-  display.fillTriangle(1, 9, 5, 1, 9, 9, WHITE);
-  display.setCursor(0, 0);
+  display.fillTriangle(1, 5, 3, 1, 5, 5, WHITE);
+  display.setCursor(8, 0);
   display.print((highestPointSample - 1) / SAMPLES_PER_HOUR, DEC);
   display.print(F("h"));
   display.print(((highestPointSample - 1) % SAMPLES_PER_HOUR) * 10, DEC);

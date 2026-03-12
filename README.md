@@ -1,5 +1,13 @@
 # Panometer
 
+A sourdough starter monitor. A distance sensor measures how much the starter has risen and plots its growth over time on a small OLED display embedded in a wooden lid sitting on top of the jar. Prototyped on a Raspberry Pi in Common Lisp, then rewritten in C and compressed onto an Arduino.
+
+<p align="center">
+  <img src="docs/photo-1.png" width="30%" />
+  <img src="docs/photo-2.png" width="30%" />
+  <img src="docs/photo-3.png" width="30%" />
+</p>
+
 ## Arduino
 
 ### Schematic
@@ -18,27 +26,25 @@ make
 make upload # or upload_old depending on the version of the bootloader
 ```
 
-### Screenshots
-
 ### TODO
 * Add hour markings on the graph
 * Screen refresh rate slows down with increasing number of samples - investigate and optimize
 
 
-## Raspberry PI (Zero)
+## Raspberry Pi Zero
 
 ### Schematic
 
 ### Setup
 
-* Download and install [[https://raspberrypi.org/downloads/raspbian][Raspbian Stretch Lite]]
+* Download and install [Raspbian Stretch Lite](https://raspberrypi.org/downloads/raspbian)
 
-* Enable ssh
+* Enable SSH
 ```
 touch /Volumes/boot/ssh
 ```
 
-* Enable and configure wifi
+* Enable and configure WiFi
 ```
 country=US
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -50,13 +56,13 @@ network={
 }
 ```
 
-* [[https://github.com/adafruit/Adafruit_Python_DHT][Install DHT11 driver]]
+* [Install DHT11 driver](https://github.com/adafruit/Adafruit_Python_DHT)
 * Install Python 3
 ```
-sudo apt-get install python 3
+sudo apt-get install python3
 ```
 
-* [[https://learn.adafruit.com/adafruit-vl6180x-time-of-flight-micro-lidar-distance-sensor-breakout/python-circuitpython][Install vl6180 driver]]
+* [Install vl6180 driver](https://learn.adafruit.com/adafruit-vl6180x-time-of-flight-micro-lidar-distance-sensor-breakout/python-circuitpython)
 * Enable I2C
 ```
 sudo raspi-config
@@ -67,11 +73,9 @@ sudo raspi-config
 sudo apt-get install libiw-dev armcl
 ```
 
-* Setup a daemon
+* Set up a daemon
 ```
 cp panometer.service /etc/systemd/system/
 sudo systemctl enable /etc/systemd/system/panometer.service
 sudo systemctl start panometer.service
 ```
-
-### Screenshots
